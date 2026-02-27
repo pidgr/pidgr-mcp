@@ -51,7 +51,7 @@ func toProtoPermissions(perms []string) []pidgrv1.Permission {
 func registerRoleTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_roles",
-		Description: "List all roles in the organization with their permission sets. Requires ORG_READ permission.",
+		Description: "List all roles in the organization with their permission sets.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListRolesInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Roles.ListRoles(ctx, connect.NewRequest(&pidgrv1.ListRolesRequest{}))
 		if err != nil {
@@ -64,7 +64,7 @@ func registerRoleTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_role",
-		Description: "Create a new custom role with permissions. Requires MEMBERS_MANAGE permission.",
+		Description: "Create a new custom role with permissions.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateRoleInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Roles.CreateRole(ctx, connect.NewRequest(&pidgrv1.CreateRoleRequest{
 			Name:        input.Name,
@@ -80,7 +80,7 @@ func registerRoleTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_role",
-		Description: "Update a role's name and/or permissions. System roles cannot be updated. Requires MEMBERS_MANAGE permission.",
+		Description: "Update a role's name and/or permissions. System roles cannot be updated.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateRoleInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Roles.UpdateRole(ctx, connect.NewRequest(&pidgrv1.UpdateRoleRequest{
 			RoleId:      input.RoleID,
@@ -97,7 +97,7 @@ func registerRoleTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_role",
-		Description: "Delete a role. Fails if users are assigned to it. System roles cannot be deleted. Requires MEMBERS_MANAGE permission.",
+		Description: "Delete a role. Fails if users are assigned to it. System roles cannot be deleted.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeleteRoleInput) (*mcp.CallToolResult, any, error) {
 		_, err := c.Roles.DeleteRole(ctx, connect.NewRequest(&pidgrv1.DeleteRoleRequest{
 			RoleId: input.RoleID,

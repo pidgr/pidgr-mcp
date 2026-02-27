@@ -5,6 +5,7 @@ package convert
 
 import (
 	"fmt"
+	"log/slog"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -29,28 +30,55 @@ func ProtoResult(msg proto.Message) (*mcp.CallToolResult, error) {
 	}, nil
 }
 
-// ErrorResult converts a Connect/gRPC error into an MCP error result.
+// genericMessage maps Connect error codes to safe, user-facing messages.
+var genericMessage = map[connect.Code]string{
+	connect.CodeCanceled:           "Request canceled",
+	connect.CodeInvalidArgument:    "Invalid input",
+	connect.CodeNotFound:           "Not found",
+	connect.CodeAlreadyExists:      "Already exists",
+	connect.CodePermissionDenied:   "Permission denied",
+	connect.CodeResourceExhausted:  "Too many requests",
+	connect.CodeFailedPrecondition: "Operation not allowed in current state",
+	connect.CodeAborted:            "Operation aborted",
+	connect.CodeOutOfRange:         "Value out of range",
+	connect.CodeUnimplemented:      "Not supported",
+	connect.CodeInternal:           "Internal error",
+	connect.CodeUnavailable:        "Service unavailable",
+	connect.CodeDataLoss:           "Data loss",
+	connect.CodeUnauthenticated:    "Authentication required",
+	connect.CodeDeadlineExceeded:   "Request timed out",
+}
+
+// ErrorResult converts an error into an MCP error result with sanitized messages.
 func ErrorResult(err error) (*mcp.CallToolResult, error) {
-	if connectErr := new(connect.Error); connect.IsNotModifiedError(err) {
+	if connect.IsNotModifiedError(err) {
 		return &mcp.CallToolResult{
 			IsError: true,
 			Content: []mcp.Content{
-				&mcp.TextContent{Text: "not modified"},
-			},
-		}, nil
-	} else if ok := connect.CodeOf(err); ok != connect.CodeUnknown {
-		_ = connectErr
-		return &mcp.CallToolResult{
-			IsError: true,
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("%s: %s", ok, err.Error())},
+				&mcp.TextContent{Text: "Not modified"},
 			},
 		}, nil
 	}
+
+	if code := connect.CodeOf(err); code != connect.CodeUnknown {
+		slog.Warn("backend error", "code", code, "detail", err.Error())
+		msg := "Request failed"
+		if m, ok := genericMessage[code]; ok {
+			msg = m
+		}
+		return &mcp.CallToolResult{
+			IsError: true,
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: msg},
+			},
+		}, nil
+	}
+
+	slog.Warn("unexpected error", "detail", err.Error())
 	return &mcp.CallToolResult{
 		IsError: true,
 		Content: []mcp.Content{
-			&mcp.TextContent{Text: err.Error()},
+			&mcp.TextContent{Text: "Request failed"},
 		},
 	}, nil
 }

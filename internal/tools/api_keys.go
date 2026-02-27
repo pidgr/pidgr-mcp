@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -12,7 +13,6 @@ import (
 	"github.com/pidgr/pidgr-mcp/internal/convert"
 	"github.com/pidgr/pidgr-mcp/internal/transport"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"time"
 )
 
 // ── Input types ─────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ type RevokeApiKeyInput struct {
 func registerApiKeyTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_api_key",
-		Description: "Create a new scoped API key. The full secret is only returned once. Requires ORG_WRITE permission.",
+		Description: "Create a new scoped API key. The full secret is only returned once.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateApiKeyInput) (*mcp.CallToolResult, any, error) {
 		var expiresAt *timestamppb.Timestamp
 		if input.ExpiresAt != "" {
@@ -60,7 +60,7 @@ func registerApiKeyTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_api_keys",
-		Description: "List all active API keys in the organization (metadata only, no secrets). Requires ORG_READ permission.",
+		Description: "List all active API keys in the organization (metadata only, no secrets).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListApiKeysInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.ApiKeys.ListApiKeys(ctx, connect.NewRequest(&pidgrv1.ListApiKeysRequest{}))
 		if err != nil {
@@ -73,7 +73,7 @@ func registerApiKeyTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "revoke_api_key",
-		Description: "Revoke an API key immediately. Requires ORG_WRITE permission.",
+		Description: "Revoke an API key immediately.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RevokeApiKeyInput) (*mcp.CallToolResult, any, error) {
 		_, err := c.ApiKeys.RevokeApiKey(ctx, connect.NewRequest(&pidgrv1.RevokeApiKeyRequest{
 			ApiKeyId: input.ApiKeyID,

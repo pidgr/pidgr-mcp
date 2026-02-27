@@ -73,7 +73,7 @@ func toProtoVariables(vars []TemplateVariableInput) []*pidgrv1.TemplateVariable 
 func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_template",
-		Description: "Create a new versioned message template. Requires TEMPLATES_WRITE permission.",
+		Description: "Create a new versioned message template.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateTemplateInput) (*mcp.CallToolResult, any, error) {
 		templateType := pidgrv1.TemplateType_TEMPLATE_TYPE_UNSPECIFIED
 		if t, ok := pidgrv1.TemplateType_value[input.Type]; ok {
@@ -98,7 +98,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_template",
-		Description: "Update a template, creating a new version. Requires TEMPLATES_WRITE permission.",
+		Description: "Update a template, creating a new version.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateTemplateInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Templates.UpdateTemplate(ctx, connect.NewRequest(&pidgrv1.UpdateTemplateRequest{
 			TemplateId: input.TemplateID,
@@ -115,7 +115,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_template",
-		Description: "Retrieve a specific template by ID and optional version. Requires TEMPLATES_READ permission.",
+		Description: "Retrieve a specific template by ID and optional version.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetTemplateInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Templates.GetTemplate(ctx, connect.NewRequest(&pidgrv1.GetTemplateRequest{
 			TemplateId: input.TemplateID,
@@ -131,7 +131,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_templates",
-		Description: "List all templates for the organization with pagination. Requires TEMPLATES_READ permission.",
+		Description: "List all templates for the organization with pagination.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTemplatesInput) (*mcp.CallToolResult, any, error) {
 		templateType := pidgrv1.TemplateType_TEMPLATE_TYPE_UNSPECIFIED
 		if t, ok := pidgrv1.TemplateType_value[input.Type]; ok {
@@ -141,7 +141,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 		}
 		resp, err := c.Templates.ListTemplates(ctx, connect.NewRequest(&pidgrv1.ListTemplatesRequest{
 			Pagination: &pidgrv1.Pagination{
-				PageSize:  input.PageSize,
+				PageSize:  clampPageSize(input.PageSize),
 				PageToken: input.PageToken,
 			},
 			Type: templateType,

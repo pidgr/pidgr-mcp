@@ -26,7 +26,7 @@ type ListSessionRecordingsInput struct {
 }
 
 type GetSessionSnapshotsInput struct {
-	RecordingID string `json:"recording_id" jsonschema:"PostHog recording ID"`
+	RecordingID string `json:"recording_id" jsonschema:"Recording ID"`
 }
 
 // ── Registration ────────────────────────────────────────────────────────────
@@ -34,12 +34,12 @@ type GetSessionSnapshotsInput struct {
 func registerReplayTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_session_recordings",
-		Description: "List session recordings with optional campaign and time range filters. Requires CAMPAIGNS_READ permission.",
+		Description: "List session recordings with optional campaign and time range filters.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListSessionRecordingsInput) (*mcp.CallToolResult, any, error) {
 		protoReq := &pidgrv1.ListSessionRecordingsRequest{
 			CampaignId: input.CampaignID,
 			Pagination: &pidgrv1.Pagination{
-				PageSize:  input.PageSize,
+				PageSize:  clampPageSize(input.PageSize),
 				PageToken: input.PageToken,
 			},
 		}
@@ -66,7 +66,7 @@ func registerReplayTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_session_snapshots",
-		Description: "Fetch rrweb snapshot data for a session recording. Requires CAMPAIGNS_READ permission.",
+		Description: "Fetch snapshot data for a session recording.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetSessionSnapshotsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Replays.GetSessionSnapshots(ctx, connect.NewRequest(&pidgrv1.GetSessionSnapshotsRequest{
 			RecordingId: input.RecordingID,
