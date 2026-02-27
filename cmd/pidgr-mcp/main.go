@@ -74,7 +74,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	verifier := auth.NewOIDCVerifier(cfg.AuthPoolID, cfg.AuthRegion, cfg.AuthClientID)
+	verifier := auth.NewOIDCVerifier(cfg.AuthIssuer, cfg.AuthClientID)
 
 	resourceURL := "https://mcp.pidgr.com"
 	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
@@ -141,8 +141,7 @@ type config struct {
 	ApiURL       string
 	apiKey       string
 	Addr         string
-	AuthPoolID   string
-	AuthRegion   string
+	AuthIssuer   string
 	AuthClientID string
 }
 
@@ -152,8 +151,7 @@ func parseConfig() (*config, error) {
 		ApiURL:       getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
 		apiKey:       os.Getenv("PIDGR_API_KEY"),
 		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
-		AuthPoolID:   os.Getenv("PIDGR_AUTH_POOL_ID"),
-		AuthRegion:   getEnv("PIDGR_AUTH_REGION", "us-east-1"),
+		AuthIssuer:   os.Getenv("PIDGR_AUTH_ISSUER"),
 		AuthClientID: os.Getenv("PIDGR_AUTH_CLIENT_ID"),
 	}
 
@@ -163,8 +161,8 @@ func parseConfig() (*config, error) {
 			return nil, fmt.Errorf("PIDGR_API_KEY is required for stdio mode")
 		}
 	case "http":
-		if cfg.AuthPoolID == "" {
-			return nil, fmt.Errorf("PIDGR_AUTH_POOL_ID is required for http mode")
+		if cfg.AuthIssuer == "" {
+			return nil, fmt.Errorf("PIDGR_AUTH_ISSUER is required for http mode")
 		}
 	default:
 		return nil, fmt.Errorf("PIDGR_MCP_TRANSPORT must be 'stdio' or 'http', got %q", cfg.Transport)

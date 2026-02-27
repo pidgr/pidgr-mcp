@@ -19,11 +19,12 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+const testIssuer = "https://auth.example.com/test-pool"
+
 func TestOIDCVerifier_Issuer(t *testing.T) {
-	v := NewOIDCVerifier("us-east-1_abc123", "us-east-1", "")
-	want := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123"
-	if got := v.Issuer(); got != want {
-		t.Errorf("Issuer() = %q, want %q", got, want)
+	v := NewOIDCVerifier(testIssuer, "")
+	if got := v.Issuer(); got != testIssuer {
+		t.Errorf("Issuer() = %q, want %q", got, testIssuer)
 	}
 }
 
@@ -78,7 +79,7 @@ func TestOIDCVerifier_ValidToken(t *testing.T) {
 	setup := newTestKeySetup(t)
 	defer setup.server.Close()
 
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = setup.server.URL
 
 	token, err := jwt.NewBuilder().
@@ -116,7 +117,7 @@ func TestOIDCVerifier_ExpiredToken(t *testing.T) {
 	setup := newTestKeySetup(t)
 	defer setup.server.Close()
 
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = setup.server.URL
 
 	token, err := jwt.NewBuilder().
@@ -160,7 +161,7 @@ func TestOIDCVerifier_InvalidSignature(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = ts.URL
 
 	token, _ := jwt.NewBuilder().
@@ -178,7 +179,7 @@ func TestOIDCVerifier_InvalidSignature(t *testing.T) {
 }
 
 func TestOIDCVerifier_JWKSFetchError(t *testing.T) {
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = "http://localhost:1/nonexistent"
 
 	_, err := v.Verify(context.Background(), "some-token", nil)
@@ -189,7 +190,7 @@ func TestOIDCVerifier_JWKSFetchError(t *testing.T) {
 
 func TestOIDCVerifier_GenericErrorMessage(t *testing.T) {
 	// All auth errors must return "token validation failed" — never leak details.
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = "http://localhost:1/nonexistent"
 
 	_, err := v.Verify(context.Background(), "bad-token", nil)
@@ -208,7 +209,7 @@ func TestOIDCVerifier_IssuerMismatchGenericError(t *testing.T) {
 	setup := newTestKeySetup(t)
 	defer setup.server.Close()
 
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = setup.server.URL
 
 	// Token with different issuer.
@@ -237,7 +238,7 @@ func TestOIDCVerifier_AudienceValidation(t *testing.T) {
 	defer setup.server.Close()
 
 	t.Run("valid audience", func(t *testing.T) {
-		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "my-client-id")
+		v := NewOIDCVerifier(testIssuer, "my-client-id")
 		v.jwksURL = setup.server.URL
 
 		token, _ := jwt.NewBuilder().
@@ -259,7 +260,7 @@ func TestOIDCVerifier_AudienceValidation(t *testing.T) {
 	})
 
 	t.Run("wrong audience", func(t *testing.T) {
-		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "my-client-id")
+		v := NewOIDCVerifier(testIssuer, "my-client-id")
 		v.jwksURL = setup.server.URL
 
 		token, _ := jwt.NewBuilder().
@@ -281,7 +282,7 @@ func TestOIDCVerifier_AudienceValidation(t *testing.T) {
 	})
 
 	t.Run("no audience required", func(t *testing.T) {
-		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+		v := NewOIDCVerifier(testIssuer, "")
 		v.jwksURL = setup.server.URL
 
 		token, _ := jwt.NewBuilder().
@@ -303,7 +304,7 @@ func TestOIDCVerifier_JWKSCacheTTL(t *testing.T) {
 	setup := newTestKeySetup(t)
 	defer setup.server.Close()
 
-	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v := NewOIDCVerifier(testIssuer, "")
 	v.jwksURL = setup.server.URL
 
 	// First call fetches JWKS.
@@ -345,7 +346,8 @@ func TestOIDCVerifier_JWKSCacheTTL(t *testing.T) {
 }
 
 func TestNewProtectedResourceMetadata(t *testing.T) {
-	metadata := NewProtectedResourceMetadata("https://mcp.pidgr.com", "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test")
+	issuer := "https://auth.example.com/pool-123"
+	metadata := NewProtectedResourceMetadata("https://mcp.pidgr.com", issuer)
 
 	if metadata.Resource != "https://mcp.pidgr.com" {
 		t.Errorf("Resource = %q, want %q", metadata.Resource, "https://mcp.pidgr.com")
@@ -353,7 +355,7 @@ func TestNewProtectedResourceMetadata(t *testing.T) {
 	if len(metadata.AuthorizationServers) != 1 {
 		t.Fatalf("expected 1 authorization server, got %d", len(metadata.AuthorizationServers))
 	}
-	if metadata.AuthorizationServers[0] != "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_test" {
+	if metadata.AuthorizationServers[0] != issuer {
 		t.Errorf("unexpected authorization server: %s", metadata.AuthorizationServers[0])
 	}
 	if len(metadata.ScopesSupported) != 2 {

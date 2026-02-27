@@ -64,7 +64,7 @@ No API key needed — OAuth handles authentication.
 ### Docker
 
 ```bash
-docker run -e PIDGR_MCP_TRANSPORT=http -e PIDGR_AUTH_POOL_ID=<your-pool-id> -p 8080:8080 ghcr.io/pidgr/pidgr-mcp:latest
+docker run -e PIDGR_MCP_TRANSPORT=http -e PIDGR_AUTH_ISSUER=<your-issuer-url> -p 8080:8080 ghcr.io/pidgr/pidgr-mcp:latest
 ```
 
 ## Configuration
@@ -75,8 +75,7 @@ docker run -e PIDGR_MCP_TRANSPORT=http -e PIDGR_AUTH_POOL_ID=<your-pool-id> -p 8
 | `PIDGR_API_URL` | No | API endpoint |
 | `PIDGR_MCP_TRANSPORT` | No | `stdio` or `http` |
 | `PIDGR_MCP_ADDR` | No | Listen address (http mode) |
-| `PIDGR_AUTH_POOL_ID` | http only | Auth provider pool ID |
-| `PIDGR_AUTH_REGION` | http only | Auth provider region |
+| `PIDGR_AUTH_ISSUER` | http only | OIDC issuer URL |
 | `PIDGR_AUTH_CLIENT_ID` | No | App client ID for audience validation |
 
 ## License
