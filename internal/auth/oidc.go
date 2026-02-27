@@ -65,7 +65,7 @@ func (v *OIDCVerifier) Verify(ctx context.Context, token string, _ *http.Request
 
 	// Validate issuer.
 	if parsed.Issuer() != v.issuer {
-		slog.Warn("issuer mismatch", "got", parsed.Issuer())
+		slog.Warn("token issuer mismatch")
 		return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 	}
 
@@ -80,7 +80,7 @@ func (v *OIDCVerifier) Verify(ctx context.Context, token string, _ *http.Request
 			}
 		}
 		if !found {
-			slog.Warn("audience mismatch", "expected", v.clientID, "got", aud)
+			slog.Warn("token audience mismatch")
 			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 		}
 	}
