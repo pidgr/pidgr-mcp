@@ -70,7 +70,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 
 	verifier := auth.NewCognitoVerifier(cfg.CognitoPoolID, cfg.CognitoRegion)
 
-	resourceURL := fmt.Sprintf("https://mcp.pidgr.com")
+	resourceURL := "https://mcp.pidgr.com"
 	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
 
 	metadata := &oauthex.ProtectedResourceMetadata{

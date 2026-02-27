@@ -30,13 +30,13 @@ func TestRegisterAll(t *testing.T) {
 	}, nil)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
-	go server.Run(context.Background(), serverTransport)
+	go func() { _ = server.Run(context.Background(), serverTransport) }()
 
 	session, err := client.Connect(context.Background(), clientTransport, nil)
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	result, err := session.ListTools(context.Background(), nil)
 	if err != nil {
@@ -67,13 +67,13 @@ func TestToolNames(t *testing.T) {
 	}, nil)
 
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
-	go server.Run(context.Background(), serverTransport)
+	go func() { _ = server.Run(context.Background(), serverTransport) }()
 
 	session, err := client.Connect(context.Background(), clientTransport, nil)
 	if err != nil {
 		t.Fatalf("failed to connect: %v", err)
 	}
-	defer session.Close()
+	defer func() { _ = session.Close() }()
 
 	result, err := session.ListTools(context.Background(), nil)
 	if err != nil {
