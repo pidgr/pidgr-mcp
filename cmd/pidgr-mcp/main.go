@@ -100,7 +100,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 
 	go func() {
 		<-ctx.Done()
-		httpServer.Close()
+		_ = httpServer.Close()
 	}()
 
 	log.Printf("pidgr-mcp: listening on %s (http mode)", cfg.Addr)
