@@ -32,7 +32,7 @@ golangci-lint run
 PIDGR_API_KEY=pidgr_k_... PIDGR_API_URL=http://localhost:50051 go run ./cmd/pidgr-mcp/
 
 # Run (HTTP mode)
-PIDGR_MCP_TRANSPORT=http PIDGR_AUTH_POOL_ID=<pool-id> go run ./cmd/pidgr-mcp/
+PIDGR_MCP_TRANSPORT=http PIDGR_AUTH_ISSUER=<issuer-url> go run ./cmd/pidgr-mcp/
 ```
 
 ## Environment Variables
@@ -43,8 +43,7 @@ PIDGR_MCP_TRANSPORT=http PIDGR_AUTH_POOL_ID=<pool-id> go run ./cmd/pidgr-mcp/
 | `PIDGR_API_URL` | No | API endpoint |
 | `PIDGR_MCP_TRANSPORT` | No | `stdio` or `http` |
 | `PIDGR_MCP_ADDR` | No | Listen address (http) |
-| `PIDGR_AUTH_POOL_ID` | http only | Auth provider pool ID |
-| `PIDGR_AUTH_REGION` | http only | Auth provider region |
+| `PIDGR_AUTH_ISSUER` | http only | OIDC issuer URL |
 | `PIDGR_AUTH_CLIENT_ID` | No | App client ID for audience validation |
 
 ## OpenSpec

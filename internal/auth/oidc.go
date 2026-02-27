@@ -20,8 +20,6 @@ const jwksCacheTTL = time.Hour
 
 // OIDCVerifier validates OIDC JWTs using JWKS discovery.
 type OIDCVerifier struct {
-	poolID   string
-	region   string
 	clientID string
 	issuer   string
 	jwksURL  string
@@ -32,16 +30,13 @@ type OIDCVerifier struct {
 	lastFetched time.Time
 }
 
-// NewOIDCVerifier creates a verifier for the given OIDC provider.
+// NewOIDCVerifier creates a verifier for the given OIDC issuer URL.
 // If clientID is non-empty, the aud claim is validated against it.
-func NewOIDCVerifier(poolID, region, clientID string) *OIDCVerifier {
-	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", region, poolID)
+func NewOIDCVerifier(issuerURL, clientID string) *OIDCVerifier {
 	return &OIDCVerifier{
-		poolID:   poolID,
-		region:   region,
 		clientID: clientID,
-		issuer:   issuer,
-		jwksURL:  issuer + "/.well-known/jwks.json",
+		issuer:   issuerURL,
+		jwksURL:  issuerURL + "/.well-known/jwks.json",
 	}
 }
 
