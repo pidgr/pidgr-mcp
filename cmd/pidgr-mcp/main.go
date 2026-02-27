@@ -47,7 +47,7 @@ func run() error {
 	// Create clients and register tools based on transport mode.
 	switch cfg.Transport {
 	case "stdio":
-		clients := transport.NewStaticTokenClients(cfg.ApiURL, cfg.ApiKey)
+		clients := transport.NewStaticTokenClients(cfg.ApiURL, cfg.apiKey)
 		tools.RegisterAll(server, clients)
 		return runStdio(server)
 
@@ -113,7 +113,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()
 		if err := httpServer.Shutdown(shutdownCtx); err != nil {
-			slog.Error("HTTP server shutdown error", "error", err.Error())
+			slog.Error("HTTP server shutdown error", "error", err)
 		}
 	}()
 
@@ -139,7 +139,7 @@ func securityHeaders(next http.Handler) http.Handler {
 type config struct {
 	Transport    string
 	ApiURL       string
-	ApiKey       string
+	apiKey       string
 	Addr         string
 	AuthPoolID   string
 	AuthRegion   string
@@ -150,7 +150,7 @@ func parseConfig() (*config, error) {
 	cfg := &config{
 		Transport:    getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
 		ApiURL:       getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
-		ApiKey:       os.Getenv("PIDGR_API_KEY"),
+		apiKey:       os.Getenv("PIDGR_API_KEY"),
 		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
 		AuthPoolID:   os.Getenv("PIDGR_AUTH_POOL_ID"),
 		AuthRegion:   getEnv("PIDGR_AUTH_REGION", "us-east-1"),
@@ -159,7 +159,7 @@ func parseConfig() (*config, error) {
 
 	switch cfg.Transport {
 	case "stdio":
-		if cfg.ApiKey == "" {
+		if cfg.apiKey == "" {
 			return nil, fmt.Errorf("PIDGR_API_KEY is required for stdio mode")
 		}
 	case "http":

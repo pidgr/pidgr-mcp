@@ -49,7 +49,7 @@ func NewOIDCVerifier(poolID, region, clientID string) *OIDCVerifier {
 func (v *OIDCVerifier) Verify(ctx context.Context, token string, _ *http.Request) (*mcpauth.TokenInfo, error) {
 	keySet, err := v.getKeySet(ctx)
 	if err != nil {
-		slog.Warn("JWKS fetch failed", "error", err.Error())
+		slog.Warn("JWKS fetch failed", "error", err)
 		return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 	}
 
@@ -58,12 +58,12 @@ func (v *OIDCVerifier) Verify(ctx context.Context, token string, _ *http.Request
 		// If the error is due to unknown kid, try refreshing JWKS once.
 		keySet, refreshErr := v.refreshKeySet(ctx)
 		if refreshErr != nil {
-			slog.Warn("JWKS refresh failed", "error", refreshErr.Error())
+			slog.Warn("JWKS refresh failed", "error", refreshErr)
 			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 		}
 		parsed, err = jwt.Parse([]byte(token), jwt.WithKeySet(keySet), jwt.WithValidate(true))
 		if err != nil {
-			slog.Warn("token parse failed after JWKS refresh", "error", err.Error())
+			slog.Warn("token parse failed after JWKS refresh", "error", err)
 			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 		}
 	}
