@@ -58,12 +58,12 @@ func TestCognitoVerifier_ValidToken(t *testing.T) {
 	}
 
 	keySet := jwk.NewSet()
-	keySet.AddKey(pubKey)
+	_ = keySet.AddKey(pubKey)
 
 	// Start mock JWKS server.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(keySet)
+		_ = json.NewEncoder(w).Encode(keySet)
 	}))
 	defer ts.Close()
 
@@ -136,11 +136,11 @@ func TestCognitoVerifier_ExpiredToken(t *testing.T) {
 	}
 
 	keySet := jwk.NewSet()
-	keySet.AddKey(pubKey)
+	_ = keySet.AddKey(pubKey)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(keySet)
+		_ = json.NewEncoder(w).Encode(keySet)
 	}))
 	defer ts.Close()
 
@@ -174,19 +174,19 @@ func TestCognitoVerifier_InvalidSignature(t *testing.T) {
 	verifyKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 
 	jwkSignKey, _ := jwk.FromRaw(signingKey)
-	jwkSignKey.Set(jwk.KeyIDKey, "signing-kid")
-	jwkSignKey.Set(jwk.AlgorithmKey, jwa.RS256)
+	_ = jwkSignKey.Set(jwk.KeyIDKey, "signing-kid")
+	_ = jwkSignKey.Set(jwk.AlgorithmKey, jwa.RS256)
 
 	pubVerifyKey, _ := jwk.FromRaw(verifyKey.Public())
-	pubVerifyKey.Set(jwk.KeyIDKey, "verify-kid")
-	pubVerifyKey.Set(jwk.AlgorithmKey, jwa.RS256)
+	_ = pubVerifyKey.Set(jwk.KeyIDKey, "verify-kid")
+	_ = pubVerifyKey.Set(jwk.AlgorithmKey, jwa.RS256)
 
 	keySet := jwk.NewSet()
-	keySet.AddKey(pubVerifyKey)
+	_ = keySet.AddKey(pubVerifyKey)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(keySet)
+		_ = json.NewEncoder(w).Encode(keySet)
 	}))
 	defer ts.Close()
 
