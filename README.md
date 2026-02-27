@@ -1,6 +1,28 @@
 # pidgr-mcp
 
-MCP server for [Pidgr](https://pidgr.com) — exposes 49 tools covering campaigns, templates, groups, teams, members, organizations, roles, API keys, heatmaps, and session replay. Works with Claude Code, Cursor, Windsurf, and any MCP-compatible AI client.
+Open-source [MCP](https://modelcontextprotocol.io/) server for [Pidgr](https://pidgr.com).
+
+Pidgr is an internal communication platform that replaces passive email and chat announcements with structured, trackable campaigns. Messages reach every employee, actions are verified, and delivery is measurable — not buried in a feed.
+
+`pidgr-mcp` lets AI agents manage Pidgr through natural language. It exposes 49 tools and works with Claude Code, Cursor, Windsurf, and any MCP-compatible client.
+
+## Capabilities
+
+**Campaigns** — Create, update, start, cancel, and list campaigns. Track per-user delivery status (sent, delivered, acknowledged, missed).
+
+**Templates** — Create versioned message templates with variable substitution. Supports Markdown, Rich, and HTML content types.
+
+**Audience** — Manage recipient groups and organizational teams. Add/remove members, query memberships in batch.
+
+**Users** — Invite users, manage profiles (department, title, location), assign roles, deactivate accounts.
+
+**Organizations** — Configure organization settings, default workflows, industry, and SSO attribute mappings.
+
+**Roles & Permissions** — Create custom roles with granular permission sets. Assign roles to users.
+
+**API Keys** — Create scoped API keys with optional expiration. List and revoke keys.
+
+**Analytics** — Query aggregated touch heatmap data with screen, campaign, and time range filters. List session recordings and fetch snapshot data for playback.
 
 ## Install
 
