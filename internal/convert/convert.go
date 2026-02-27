@@ -61,7 +61,7 @@ func ErrorResult(err error) (*mcp.CallToolResult, error) {
 	}
 
 	if code := connect.CodeOf(err); code != connect.CodeUnknown {
-		slog.Warn("backend error", "code", code, "detail", err.Error())
+		slog.Warn("backend error", "code", code, "detail", err)
 		msg := "Request failed"
 		if m, ok := genericMessage[code]; ok {
 			msg = m
@@ -74,7 +74,7 @@ func ErrorResult(err error) (*mcp.CallToolResult, error) {
 		}, nil
 	}
 
-	slog.Warn("unexpected error", "detail", err.Error())
+	slog.Warn("unexpected error", "detail", err)
 	return &mcp.CallToolResult{
 		IsError: true,
 		Content: []mcp.Content{

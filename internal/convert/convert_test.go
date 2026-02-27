@@ -119,11 +119,11 @@ func TestErrorResultNotModified(t *testing.T) {
 
 func TestErrorResultDoesNotLeakDetails(t *testing.T) {
 	// The backend error message should never appear in the result.
-	secretMsg := "user lacks CAMPAIGNS_WRITE on org_abc123"
-	err := connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s", secretMsg))
+	backendMsg := "user lacks CAMPAIGNS_WRITE on org_abc123"
+	err := connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s", backendMsg))
 	result, _ := ErrorResult(err)
 	text := result.Content[0].(*mcp.TextContent).Text
-	if text == secretMsg || text == fmt.Sprintf("permission_denied: %s", secretMsg) {
+	if text == backendMsg || text == fmt.Sprintf("permission_denied: %s", backendMsg) {
 		t.Errorf("error result leaked backend details: %q", text)
 	}
 }
