@@ -1,0 +1,9 @@
+# Default owners for the entire repository.
+# All PRs require review from at least one owner.
+* @pidgr/platform
+
+# Security-sensitive files require explicit review.
+.github/ @pidgr/platform
+Dockerfile @pidgr/platform
+.goreleaser.yml @pidgr/platform
+internal/auth/ @pidgr/platform
