@@ -6,6 +6,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -15,34 +16,41 @@ import (
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 )
 
-// CognitoVerifier validates Cognito JWTs using JWKS.
-type CognitoVerifier struct {
-	poolID string
-	region string
-	issuer string
-	jwksURL string
+const jwksCacheTTL = time.Hour
 
-	mu      sync.RWMutex
-	keySet  jwk.Set
-	fetched bool
+// OIDCVerifier validates OIDC JWTs using JWKS discovery.
+type OIDCVerifier struct {
+	poolID   string
+	region   string
+	clientID string
+	issuer   string
+	jwksURL  string
+
+	mu          sync.RWMutex
+	keySet      jwk.Set
+	fetched     bool
+	lastFetched time.Time
 }
 
-// NewCognitoVerifier creates a verifier for the given Cognito User Pool.
-func NewCognitoVerifier(poolID, region string) *CognitoVerifier {
+// NewOIDCVerifier creates a verifier for the given OIDC provider.
+// If clientID is non-empty, the aud claim is validated against it.
+func NewOIDCVerifier(poolID, region, clientID string) *OIDCVerifier {
 	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", region, poolID)
-	return &CognitoVerifier{
-		poolID:  poolID,
-		region:  region,
-		issuer:  issuer,
-		jwksURL: issuer + "/.well-known/jwks.json",
+	return &OIDCVerifier{
+		poolID:   poolID,
+		region:   region,
+		clientID: clientID,
+		issuer:   issuer,
+		jwksURL:  issuer + "/.well-known/jwks.json",
 	}
 }
 
 // Verify implements auth.TokenVerifier for the MCP SDK.
-func (v *CognitoVerifier) Verify(ctx context.Context, token string, _ *http.Request) (*mcpauth.TokenInfo, error) {
-	keySet, err := v.getKeySet(ctx, "")
+func (v *OIDCVerifier) Verify(ctx context.Context, token string, _ *http.Request) (*mcpauth.TokenInfo, error) {
+	keySet, err := v.getKeySet(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to fetch JWKS: %v", mcpauth.ErrInvalidToken, err)
+		slog.Warn("JWKS fetch failed", "error", err.Error())
+		return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 	}
 
 	parsed, err := jwt.Parse([]byte(token), jwt.WithKeySet(keySet), jwt.WithValidate(true))
@@ -50,17 +58,36 @@ func (v *CognitoVerifier) Verify(ctx context.Context, token string, _ *http.Requ
 		// If the error is due to unknown kid, try refreshing JWKS once.
 		keySet, refreshErr := v.refreshKeySet(ctx)
 		if refreshErr != nil {
-			return nil, fmt.Errorf("%w: %v", mcpauth.ErrInvalidToken, err)
+			slog.Warn("JWKS refresh failed", "error", refreshErr.Error())
+			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 		}
 		parsed, err = jwt.Parse([]byte(token), jwt.WithKeySet(keySet), jwt.WithValidate(true))
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", mcpauth.ErrInvalidToken, err)
+			slog.Warn("token parse failed after JWKS refresh", "error", err.Error())
+			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
 		}
 	}
 
 	// Validate issuer.
 	if parsed.Issuer() != v.issuer {
-		return nil, fmt.Errorf("%w: invalid issuer: got %q, want %q", mcpauth.ErrInvalidToken, parsed.Issuer(), v.issuer)
+		slog.Warn("issuer mismatch", "got", parsed.Issuer())
+		return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
+	}
+
+	// Validate audience if client ID is configured.
+	if v.clientID != "" {
+		aud := parsed.Audience()
+		found := false
+		for _, a := range aud {
+			if a == v.clientID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			slog.Warn("audience mismatch", "expected", v.clientID, "got", aud)
+			return nil, fmt.Errorf("%w: token validation failed", mcpauth.ErrInvalidToken)
+		}
 	}
 
 	// Extract claims.
@@ -87,10 +114,10 @@ func (v *CognitoVerifier) Verify(ctx context.Context, token string, _ *http.Requ
 	}, nil
 }
 
-// getKeySet returns the cached JWKS or fetches it if not yet loaded.
-func (v *CognitoVerifier) getKeySet(ctx context.Context, _ string) (jwk.Set, error) {
+// getKeySet returns the cached JWKS or fetches it if stale or not yet loaded.
+func (v *OIDCVerifier) getKeySet(ctx context.Context) (jwk.Set, error) {
 	v.mu.RLock()
-	if v.fetched && v.keySet != nil {
+	if v.fetched && v.keySet != nil && time.Since(v.lastFetched) < jwksCacheTTL {
 		defer v.mu.RUnlock()
 		return v.keySet, nil
 	}
@@ -98,21 +125,22 @@ func (v *CognitoVerifier) getKeySet(ctx context.Context, _ string) (jwk.Set, err
 	return v.refreshKeySet(ctx)
 }
 
-// refreshKeySet fetches the JWKS from Cognito and updates the cache.
-func (v *CognitoVerifier) refreshKeySet(ctx context.Context) (jwk.Set, error) {
+// refreshKeySet fetches the JWKS and updates the cache.
+func (v *OIDCVerifier) refreshKeySet(ctx context.Context) (jwk.Set, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
 	keySet, err := jwk.Fetch(ctx, v.jwksURL)
 	if err != nil {
-		return nil, fmt.Errorf("fetch JWKS from %s: %w", v.jwksURL, err)
+		return nil, fmt.Errorf("failed to fetch key set: %w", err)
 	}
 	v.keySet = keySet
 	v.fetched = true
+	v.lastFetched = time.Now()
 	return keySet, nil
 }
 
-// Issuer returns the Cognito issuer URL.
-func (v *CognitoVerifier) Issuer() string {
+// Issuer returns the OIDC issuer URL.
+func (v *OIDCVerifier) Issuer() string {
 	return v.issuer
 }

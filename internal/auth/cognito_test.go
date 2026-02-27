@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,22 +19,28 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
-func TestCognitoVerifier_Issuer(t *testing.T) {
-	v := NewCognitoVerifier("us-east-1_abc123", "us-east-1")
+func TestOIDCVerifier_Issuer(t *testing.T) {
+	v := NewOIDCVerifier("us-east-1_abc123", "us-east-1", "")
 	want := "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc123"
 	if got := v.Issuer(); got != want {
 		t.Errorf("Issuer() = %q, want %q", got, want)
 	}
 }
 
-func TestCognitoVerifier_ValidToken(t *testing.T) {
-	// Generate RSA key pair.
+// testKeySetup creates an RSA key pair and JWKS mock server for testing.
+type testKeySetup struct {
+	jwkKey jwk.Key
+	keySet jwk.Set
+	server *httptest.Server
+}
+
+func newTestKeySetup(t *testing.T) *testKeySetup {
+	t.Helper()
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate RSA key: %v", err)
 	}
 
-	// Create JWK key.
 	jwkKey, err := jwk.FromRaw(privateKey)
 	if err != nil {
 		t.Fatalf("failed to create JWK: %v", err)
@@ -45,7 +52,6 @@ func TestCognitoVerifier_ValidToken(t *testing.T) {
 		t.Fatalf("failed to set alg: %v", err)
 	}
 
-	// Create public key set for JWKS endpoint.
 	pubKey, err := jwk.FromRaw(privateKey.Public())
 	if err != nil {
 		t.Fatalf("failed to create public JWK: %v", err)
@@ -60,20 +66,21 @@ func TestCognitoVerifier_ValidToken(t *testing.T) {
 	keySet := jwk.NewSet()
 	_ = keySet.AddKey(pubKey)
 
-	// Start mock JWKS server.
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(keySet)
 	}))
-	defer ts.Close()
 
-	// Create verifier pointing to mock server.
-	poolID := "us-east-1_test"
-	region := "us-east-1"
-	v := NewCognitoVerifier(poolID, region)
-	v.jwksURL = ts.URL // Override JWKS URL.
+	return &testKeySetup{jwkKey: jwkKey, keySet: keySet, server: ts}
+}
 
-	// Build a valid JWT.
+func TestOIDCVerifier_ValidToken(t *testing.T) {
+	setup := newTestKeySetup(t)
+	defer setup.server.Close()
+
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v.jwksURL = setup.server.URL
+
 	token, err := jwt.NewBuilder().
 		Issuer(v.issuer).
 		Subject("user-123").
@@ -84,12 +91,11 @@ func TestCognitoVerifier_ValidToken(t *testing.T) {
 		t.Fatalf("failed to build token: %v", err)
 	}
 
-	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, jwkKey))
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
 	if err != nil {
 		t.Fatalf("failed to sign token: %v", err)
 	}
 
-	// Verify the token.
 	info, err := v.Verify(context.Background(), string(signed), nil)
 	if err != nil {
 		t.Fatalf("Verify() error: %v", err)
@@ -106,48 +112,13 @@ func TestCognitoVerifier_ValidToken(t *testing.T) {
 	}
 }
 
-func TestCognitoVerifier_ExpiredToken(t *testing.T) {
-	// Generate RSA key pair.
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatalf("failed to generate RSA key: %v", err)
-	}
+func TestOIDCVerifier_ExpiredToken(t *testing.T) {
+	setup := newTestKeySetup(t)
+	defer setup.server.Close()
 
-	jwkKey, err := jwk.FromRaw(privateKey)
-	if err != nil {
-		t.Fatalf("failed to create JWK: %v", err)
-	}
-	if err := jwkKey.Set(jwk.KeyIDKey, "test-kid"); err != nil {
-		t.Fatalf("failed to set kid: %v", err)
-	}
-	if err := jwkKey.Set(jwk.AlgorithmKey, jwa.RS256); err != nil {
-		t.Fatalf("failed to set alg: %v", err)
-	}
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v.jwksURL = setup.server.URL
 
-	pubKey, err := jwk.FromRaw(privateKey.Public())
-	if err != nil {
-		t.Fatalf("failed to create public JWK: %v", err)
-	}
-	if err := pubKey.Set(jwk.KeyIDKey, "test-kid"); err != nil {
-		t.Fatalf("failed to set kid: %v", err)
-	}
-	if err := pubKey.Set(jwk.AlgorithmKey, jwa.RS256); err != nil {
-		t.Fatalf("failed to set alg: %v", err)
-	}
-
-	keySet := jwk.NewSet()
-	_ = keySet.AddKey(pubKey)
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(keySet)
-	}))
-	defer ts.Close()
-
-	v := NewCognitoVerifier("us-east-1_test", "us-east-1")
-	v.jwksURL = ts.URL
-
-	// Build an expired JWT.
 	token, err := jwt.NewBuilder().
 		Issuer(v.issuer).
 		Subject("user-123").
@@ -157,7 +128,7 @@ func TestCognitoVerifier_ExpiredToken(t *testing.T) {
 		t.Fatalf("failed to build token: %v", err)
 	}
 
-	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, jwkKey))
+	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
 	if err != nil {
 		t.Fatalf("failed to sign token: %v", err)
 	}
@@ -168,8 +139,7 @@ func TestCognitoVerifier_ExpiredToken(t *testing.T) {
 	}
 }
 
-func TestCognitoVerifier_InvalidSignature(t *testing.T) {
-	// Generate two different key pairs.
+func TestOIDCVerifier_InvalidSignature(t *testing.T) {
 	signingKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 	verifyKey, _ := rsa.GenerateKey(rand.Reader, 2048)
 
@@ -190,7 +160,7 @@ func TestCognitoVerifier_InvalidSignature(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	v := NewCognitoVerifier("us-east-1_test", "us-east-1")
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
 	v.jwksURL = ts.URL
 
 	token, _ := jwt.NewBuilder().
@@ -199,7 +169,6 @@ func TestCognitoVerifier_InvalidSignature(t *testing.T) {
 		Expiration(time.Now().Add(time.Hour)).
 		Build()
 
-	// Sign with the wrong key.
 	signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, jwkSignKey))
 
 	_, err := v.Verify(context.Background(), string(signed), nil)
@@ -208,14 +177,171 @@ func TestCognitoVerifier_InvalidSignature(t *testing.T) {
 	}
 }
 
-func TestCognitoVerifier_JWKSFetchError(t *testing.T) {
-	v := NewCognitoVerifier("us-east-1_test", "us-east-1")
+func TestOIDCVerifier_JWKSFetchError(t *testing.T) {
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
 	v.jwksURL = "http://localhost:1/nonexistent"
 
 	_, err := v.Verify(context.Background(), "some-token", nil)
 	if err == nil {
 		t.Fatal("expected error when JWKS endpoint is unreachable")
 	}
+}
+
+func TestOIDCVerifier_GenericErrorMessage(t *testing.T) {
+	// All auth errors must return "token validation failed" — never leak details.
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v.jwksURL = "http://localhost:1/nonexistent"
+
+	_, err := v.Verify(context.Background(), "bad-token", nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "token validation failed") {
+		t.Errorf("error should contain generic message, got: %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "localhost") {
+		t.Errorf("error should not contain JWKS URL, got: %q", err.Error())
+	}
+}
+
+func TestOIDCVerifier_IssuerMismatchGenericError(t *testing.T) {
+	setup := newTestKeySetup(t)
+	defer setup.server.Close()
+
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v.jwksURL = setup.server.URL
+
+	// Token with different issuer.
+	token, _ := jwt.NewBuilder().
+		Issuer("https://evil.com").
+		Subject("user-123").
+		Expiration(time.Now().Add(time.Hour)).
+		Build()
+
+	signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
+
+	_, err := v.Verify(context.Background(), string(signed), nil)
+	if err == nil {
+		t.Fatal("expected error for issuer mismatch")
+	}
+	if !strings.Contains(err.Error(), "token validation failed") {
+		t.Errorf("error should be generic, got: %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "evil.com") {
+		t.Errorf("error should not contain the bad issuer URL, got: %q", err.Error())
+	}
+}
+
+func TestOIDCVerifier_AudienceValidation(t *testing.T) {
+	setup := newTestKeySetup(t)
+	defer setup.server.Close()
+
+	t.Run("valid audience", func(t *testing.T) {
+		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "my-client-id")
+		v.jwksURL = setup.server.URL
+
+		token, _ := jwt.NewBuilder().
+			Issuer(v.issuer).
+			Subject("user-123").
+			Audience([]string{"my-client-id"}).
+			Expiration(time.Now().Add(time.Hour)).
+			Build()
+
+		signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
+
+		info, err := v.Verify(context.Background(), string(signed), nil)
+		if err != nil {
+			t.Fatalf("Verify() error: %v", err)
+		}
+		if info.UserID != "user-123" {
+			t.Errorf("UserID = %q, want %q", info.UserID, "user-123")
+		}
+	})
+
+	t.Run("wrong audience", func(t *testing.T) {
+		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "my-client-id")
+		v.jwksURL = setup.server.URL
+
+		token, _ := jwt.NewBuilder().
+			Issuer(v.issuer).
+			Subject("user-123").
+			Audience([]string{"other-client-id"}).
+			Expiration(time.Now().Add(time.Hour)).
+			Build()
+
+		signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
+
+		_, err := v.Verify(context.Background(), string(signed), nil)
+		if err == nil {
+			t.Fatal("expected error for wrong audience")
+		}
+		if !strings.Contains(err.Error(), "token validation failed") {
+			t.Errorf("error should be generic, got: %q", err.Error())
+		}
+	})
+
+	t.Run("no audience required", func(t *testing.T) {
+		v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+		v.jwksURL = setup.server.URL
+
+		token, _ := jwt.NewBuilder().
+			Issuer(v.issuer).
+			Subject("user-123").
+			Expiration(time.Now().Add(time.Hour)).
+			Build()
+
+		signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
+
+		_, err := v.Verify(context.Background(), string(signed), nil)
+		if err != nil {
+			t.Fatalf("Verify() should pass without audience check: %v", err)
+		}
+	})
+}
+
+func TestOIDCVerifier_JWKSCacheTTL(t *testing.T) {
+	setup := newTestKeySetup(t)
+	defer setup.server.Close()
+
+	v := NewOIDCVerifier("us-east-1_test", "us-east-1", "")
+	v.jwksURL = setup.server.URL
+
+	// First call fetches JWKS.
+	token, _ := jwt.NewBuilder().
+		Issuer(v.issuer).
+		Subject("user-123").
+		Expiration(time.Now().Add(time.Hour)).
+		Build()
+	signed, _ := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
+
+	_, err := v.Verify(context.Background(), string(signed), nil)
+	if err != nil {
+		t.Fatalf("first Verify() error: %v", err)
+	}
+
+	if !v.fetched {
+		t.Fatal("expected fetched to be true")
+	}
+	if v.lastFetched.IsZero() {
+		t.Fatal("expected lastFetched to be set")
+	}
+
+	// Simulate cache expiry.
+	v.mu.Lock()
+	v.lastFetched = time.Now().Add(-2 * jwksCacheTTL)
+	v.mu.Unlock()
+
+	// getKeySet should trigger a refresh.
+	_, err = v.getKeySet(context.Background())
+	if err != nil {
+		t.Fatalf("getKeySet after TTL expiry error: %v", err)
+	}
+
+	v.mu.RLock()
+	if time.Since(v.lastFetched) > time.Second {
+		t.Error("expected lastFetched to be updated after TTL-based refresh")
+	}
+	v.mu.RUnlock()
 }
 
 func TestNewProtectedResourceMetadata(t *testing.T) {

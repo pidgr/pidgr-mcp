@@ -33,7 +33,7 @@ type UpdateOrganizationInput struct {
 
 type SsoMappingInput struct {
 	IdpClaim     string `json:"idp_claim" jsonschema:"Claim name from identity provider"`
-	ProfileField string `json:"profile_field" jsonschema:"Target UserProfile field name"`
+	ProfileField string `json:"profile_field" jsonschema:"Target profile field name"`
 }
 
 type UpdateSsoAttributeMappingsInput struct {
@@ -75,7 +75,7 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_organization",
-		Description: "Retrieve the organization for the authenticated user. Requires ORG_READ permission.",
+		Description: "Retrieve the organization for the authenticated user.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetOrganizationInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Organizations.GetOrganization(ctx, connect.NewRequest(&pidgrv1.GetOrganizationRequest{}))
 		if err != nil {
@@ -88,7 +88,7 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_organization",
-		Description: "Update organization settings. Requires ORG_WRITE permission.",
+		Description: "Update organization settings.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateOrganizationInput) (*mcp.CallToolResult, any, error) {
 		industry := pidgrv1.Industry_INDUSTRY_UNSPECIFIED
 		if v, ok := pidgrv1.Industry_value[input.Industry]; ok {
@@ -118,7 +118,7 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_sso_attribute_mappings",
-		Description: "Replace all SSO identity provider claim-to-profile field mappings. Requires ORG_WRITE permission.",
+		Description: "Replace all SSO identity provider claim-to-profile field mappings.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateSsoAttributeMappingsInput) (*mcp.CallToolResult, any, error) {
 		mappings := make([]*pidgrv1.SsoAttributeMapping, len(input.SsoAttributeMappings))
 		for i, m := range input.SsoAttributeMappings {

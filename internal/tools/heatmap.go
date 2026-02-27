@@ -18,7 +18,7 @@ import (
 // ── Input types ─────────────────────────────────────────────────────────────
 
 type QueryHeatmapDataInput struct {
-	ScreenName     string   `json:"screen_name" jsonschema:"Screen name from React Navigation route"`
+	ScreenName     string   `json:"screen_name" jsonschema:"Screen route name"`
 	DateFrom       string   `json:"date_from,omitempty" jsonschema:"Start of time range (RFC 3339)"`
 	DateTo         string   `json:"date_to,omitempty" jsonschema:"End of time range (RFC 3339)"`
 	CampaignID     string   `json:"campaign_id,omitempty" jsonschema:"Filter by campaign UUID"`
@@ -35,7 +35,7 @@ type ListScreenshotsInput struct{}
 func registerHeatmapTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "query_heatmap_data",
-		Description: "Query aggregated touch data for heatmap rendering. Requires CAMPAIGNS_READ permission.",
+		Description: "Query aggregated touch data for heatmap rendering.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input QueryHeatmapDataInput) (*mcp.CallToolResult, any, error) {
 		protoReq := &pidgrv1.QueryHeatmapDataRequest{
 			ScreenName:     input.ScreenName,
@@ -82,7 +82,7 @@ func registerHeatmapTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_screenshots",
-		Description: "List available screen screenshots for heatmap backgrounds. Requires CAMPAIGNS_READ permission.",
+		Description: "List available screen screenshots for heatmap backgrounds.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListScreenshotsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Heatmaps.ListScreenshots(ctx, connect.NewRequest(&pidgrv1.ListScreenshotsRequest{}))
 		if err != nil {

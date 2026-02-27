@@ -7,10 +7,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -49,6 +52,9 @@ func run() error {
 		return runStdio(server)
 
 	case "http":
+		if !strings.HasPrefix(cfg.ApiURL, "https://") {
+			slog.Warn("PIDGR_API_URL is not HTTPS — traffic to the backend is unencrypted", "url", cfg.ApiURL)
+		}
 		clients := transport.NewDynamicTokenClients(cfg.ApiURL)
 		tools.RegisterAll(server, clients)
 		return runHTTP(server, cfg)
@@ -68,7 +74,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	verifier := auth.NewCognitoVerifier(cfg.CognitoPoolID, cfg.CognitoRegion)
+	verifier := auth.NewOIDCVerifier(cfg.AuthPoolID, cfg.AuthRegion, cfg.AuthClientID)
 
 	resourceURL := "https://mcp.pidgr.com"
 	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
@@ -94,13 +100,21 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	mux.Handle("/", authMiddleware(handler))
 
 	httpServer := &http.Server{
-		Addr:    cfg.Addr,
-		Handler: mux,
+		Addr:           cfg.Addr,
+		Handler:        securityHeaders(mux),
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   60 * time.Second,
+		IdleTimeout:    120 * time.Second,
+		MaxHeaderBytes: 8 << 10, // 8 KB
 	}
 
 	go func() {
 		<-ctx.Done()
-		_ = httpServer.Close()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			slog.Error("HTTP server shutdown error", "error", err.Error())
+		}
 	}()
 
 	log.Printf("pidgr-mcp: listening on %s (http mode)", cfg.Addr)
@@ -110,24 +124,37 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	return nil
 }
 
+// securityHeaders adds standard security response headers.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // config holds parsed environment configuration.
 type config struct {
-	Transport      string
-	ApiURL         string
-	ApiKey         string
-	Addr           string
-	CognitoPoolID  string
-	CognitoRegion  string
+	Transport    string
+	ApiURL       string
+	ApiKey       string
+	Addr         string
+	AuthPoolID   string
+	AuthRegion   string
+	AuthClientID string
 }
 
 func parseConfig() (*config, error) {
 	cfg := &config{
-		Transport:     getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
-		ApiURL:        getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
-		ApiKey:        os.Getenv("PIDGR_API_KEY"),
-		Addr:          getEnv("PIDGR_MCP_ADDR", ":8080"),
-		CognitoPoolID: os.Getenv("PIDGR_COGNITO_POOL_ID"),
-		CognitoRegion: getEnv("PIDGR_COGNITO_REGION", "us-east-1"),
+		Transport:    getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
+		ApiURL:       getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
+		ApiKey:       os.Getenv("PIDGR_API_KEY"),
+		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
+		AuthPoolID:   os.Getenv("PIDGR_AUTH_POOL_ID"),
+		AuthRegion:   getEnv("PIDGR_AUTH_REGION", "us-east-1"),
+		AuthClientID: os.Getenv("PIDGR_AUTH_CLIENT_ID"),
 	}
 
 	switch cfg.Transport {
@@ -136,8 +163,8 @@ func parseConfig() (*config, error) {
 			return nil, fmt.Errorf("PIDGR_API_KEY is required for stdio mode")
 		}
 	case "http":
-		if cfg.CognitoPoolID == "" {
-			return nil, fmt.Errorf("PIDGR_COGNITO_POOL_ID is required for http mode")
+		if cfg.AuthPoolID == "" {
+			return nil, fmt.Errorf("PIDGR_AUTH_POOL_ID is required for http mode")
 		}
 	default:
 		return nil, fmt.Errorf("PIDGR_MCP_TRANSPORT must be 'stdio' or 'http', got %q", cfg.Transport)

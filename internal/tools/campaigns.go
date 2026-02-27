@@ -70,8 +70,12 @@ type ListDeliveriesInput struct {
 func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_campaign",
-		Description: "Create a new campaign with a template, audience, and workflow. Requires CAMPAIGNS_WRITE permission.",
+		Description: "Create a new campaign with a template, audience, and workflow.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateCampaignInput) (*mcp.CallToolResult, any, error) {
+		if err := validateBatchSize(input.UserIDs, maxBatchSize); err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
 		var audience []*pidgrv1.AudienceMember
 		for _, a := range input.Audience {
 			audience = append(audience, &pidgrv1.AudienceMember{
@@ -99,7 +103,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_campaign",
-		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed. Requires CAMPAIGNS_WRITE permission.",
+		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.UpdateCampaign(ctx, connect.NewRequest(&pidgrv1.UpdateCampaignRequest{
 			CampaignId:      input.CampaignID,
@@ -120,7 +124,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_campaign",
-		Description: "Start a campaign's workflow execution via Temporal. Requires CAMPAIGNS_START permission.",
+		Description: "Start a campaign's workflow execution.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input StartCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.StartCampaign(ctx, connect.NewRequest(&pidgrv1.StartCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -135,7 +139,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_campaign",
-		Description: "Retrieve a single campaign by ID. Requires CAMPAIGNS_READ permission.",
+		Description: "Retrieve a single campaign by ID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.GetCampaign(ctx, connect.NewRequest(&pidgrv1.GetCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -150,11 +154,11 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_campaigns",
-		Description: "List campaigns for the organization with pagination. Requires CAMPAIGNS_READ permission.",
+		Description: "List campaigns for the organization with pagination.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListCampaignsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.ListCampaigns(ctx, connect.NewRequest(&pidgrv1.ListCampaignsRequest{
 			Pagination: &pidgrv1.Pagination{
-				PageSize:  input.PageSize,
+				PageSize:  clampPageSize(input.PageSize),
 				PageToken: input.PageToken,
 			},
 		}))
@@ -168,7 +172,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "cancel_campaign",
-		Description: "Cancel a running campaign. Requires CAMPAIGNS_WRITE permission.",
+		Description: "Cancel a running campaign.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CancelCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.CancelCampaign(ctx, connect.NewRequest(&pidgrv1.CancelCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -183,7 +187,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_deliveries",
-		Description: "List delivery records for a campaign, optionally filtered by status. Requires CAMPAIGNS_READ permission.",
+		Description: "List delivery records for a campaign, optionally filtered by status.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListDeliveriesInput) (*mcp.CallToolResult, any, error) {
 		statusFilter := pidgrv1.DeliveryStatus_DELIVERY_STATUS_UNSPECIFIED
 		if input.StatusFilter != "" {
@@ -197,7 +201,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 			CampaignId:   input.CampaignID,
 			StatusFilter: statusFilter,
 			Pagination: &pidgrv1.Pagination{
-				PageSize:  input.PageSize,
+				PageSize:  clampPageSize(input.PageSize),
 				PageToken: input.PageToken,
 			},
 		}))

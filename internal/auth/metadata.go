@@ -9,10 +9,10 @@ import (
 
 // NewProtectedResourceMetadata builds the OAuth 2.0 Protected Resource Metadata
 // for the MCP server (RFC 9728).
-func NewProtectedResourceMetadata(resourceURL, cognitoIssuer string) *oauthex.ProtectedResourceMetadata {
+func NewProtectedResourceMetadata(resourceURL, issuer string) *oauthex.ProtectedResourceMetadata {
 	return &oauthex.ProtectedResourceMetadata{
 		Resource:               resourceURL,
-		AuthorizationServers:   []string{cognitoIssuer},
+		AuthorizationServers:   []string{issuer},
 		ScopesSupported:        []string{"openid", "profile"},
 		BearerMethodsSupported: []string{"header"},
 		ResourceName:           "Pidgr MCP Server",
