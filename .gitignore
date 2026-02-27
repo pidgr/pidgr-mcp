@@ -1,0 +1,31 @@
+# Binaries
+/pidgr-mcp
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test
+coverage.out
+*.test
+
+# Build
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets — never commit these
+.env
+.env.*
+*.pem
+*.key
+.netrc
