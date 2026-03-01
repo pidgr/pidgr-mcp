@@ -41,7 +41,7 @@ func run() error {
 		return err
 	}
 
-	// Initialize OTEL observability (traces + logs → Honeycomb or no-op).
+	// Initialize OTEL observability (traces + logs via OTLP, or no-op).
 	ctx := context.Background()
 	tp, err := observability.InitTracer(ctx, cfg.OTELEndpoint, "pidgr-mcp")
 	if err != nil {
@@ -55,7 +55,7 @@ func run() error {
 	}
 	defer func() { _ = lp.Shutdown(ctx) }()
 
-	// Fan out slog to both stdout (CloudWatch) and OTEL (Honeycomb).
+	// Fan out slog to both stdout (container logs) and OTEL (remote backend).
 	otelHandler := otelslog.NewHandler("pidgr-mcp", otelslog.WithLoggerProvider(lp))
 	stdoutHandler := slog.NewJSONHandler(os.Stdout, nil)
 	slog.SetDefault(slog.New(observability.NewFanoutHandler(stdoutHandler, otelHandler)))
@@ -177,15 +177,6 @@ func parseConfig() (*config, error) {
 		AuthIssuer:   os.Getenv("PIDGR_AUTH_ISSUER"),
 		AuthClientID: os.Getenv("PIDGR_AUTH_CLIENT_ID"),
 		OTELEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-	}
-
-	// Auto-configure OTEL for Honeycomb when endpoint is not explicitly set.
-	if cfg.OTELEndpoint == "" {
-		if hcKey := os.Getenv("HONEYCOMB_API_KEY"); hcKey != "" {
-			cfg.OTELEndpoint = "https://api.honeycomb.io"
-			_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", cfg.OTELEndpoint)
-			_ = os.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "x-honeycomb-team="+hcKey)
-		}
 	}
 
 	switch cfg.Transport {
