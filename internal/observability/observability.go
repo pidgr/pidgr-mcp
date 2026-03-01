@@ -83,7 +83,7 @@ func InitLogger(ctx context.Context, endpoint, serviceName string) (*sdklog.Logg
 }
 
 // FanoutHandler distributes slog records to multiple handlers, enabling
-// simultaneous output to stdout (for container logs) and OTEL (for Honeycomb).
+// simultaneous output to stdout (for container logs) and OTEL (for remote backend).
 type FanoutHandler struct {
 	handlers []slog.Handler
 }
