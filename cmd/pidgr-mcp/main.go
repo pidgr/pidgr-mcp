@@ -17,7 +17,6 @@ import (
 
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"github.com/pidgr/pidgr-mcp/internal/auth"
 	"github.com/pidgr/pidgr-mcp/internal/observability"
 	"github.com/pidgr/pidgr-mcp/internal/tools"
@@ -101,13 +100,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	resourceURL := "https://mcp.pidgr.com"
 	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
 
-	metadata := &oauthex.ProtectedResourceMetadata{
-		Resource:               resourceURL,
-		AuthorizationServers:   []string{verifier.Issuer()},
-		ScopesSupported:        []string{"openid", "profile"},
-		BearerMethodsSupported: []string{"header"},
-		ResourceName:           "Pidgr MCP Server",
-	}
+	metadata := auth.NewProtectedResourceMetadata(resourceURL, resourceURL)
 
 	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, &mcpauth.RequireBearerTokenOptions{
 		ResourceMetadataURL: metadataURL,
