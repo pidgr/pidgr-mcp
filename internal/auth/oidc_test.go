@@ -346,17 +346,17 @@ func TestOIDCVerifier_JWKSCacheTTL(t *testing.T) {
 }
 
 func TestNewProtectedResourceMetadata(t *testing.T) {
-	issuer := "https://auth.example.com/pool-123"
-	metadata := NewProtectedResourceMetadata("https://mcp.pidgr.com", issuer)
+	resourceURL := "https://mcp.pidgr.com"
+	metadata := NewProtectedResourceMetadata(resourceURL, resourceURL)
 
-	if metadata.Resource != "https://mcp.pidgr.com" {
-		t.Errorf("Resource = %q, want %q", metadata.Resource, "https://mcp.pidgr.com")
+	if metadata.Resource != resourceURL {
+		t.Errorf("Resource = %q, want %q", metadata.Resource, resourceURL)
 	}
 	if len(metadata.AuthorizationServers) != 1 {
 		t.Fatalf("expected 1 authorization server, got %d", len(metadata.AuthorizationServers))
 	}
-	if metadata.AuthorizationServers[0] != issuer {
-		t.Errorf("unexpected authorization server: %s", metadata.AuthorizationServers[0])
+	if metadata.AuthorizationServers[0] != resourceURL {
+		t.Errorf("AuthorizationServers[0] = %q, want %q", metadata.AuthorizationServers[0], resourceURL)
 	}
 	if len(metadata.ScopesSupported) != 2 {
 		t.Errorf("expected 2 scopes, got %d", len(metadata.ScopesSupported))
