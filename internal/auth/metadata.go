@@ -8,11 +8,13 @@ import (
 )
 
 // NewProtectedResourceMetadata builds the OAuth 2.0 Protected Resource Metadata
-// for the MCP server (RFC 9728).
-func NewProtectedResourceMetadata(resourceURL, issuer string) *oauthex.ProtectedResourceMetadata {
+// for the MCP server (RFC 9728). The authorizationServer parameter is the URL
+// where clients should fetch the authorization server metadata from — typically
+// the resource server itself when using a DCR shim.
+func NewProtectedResourceMetadata(resourceURL, authorizationServer string) *oauthex.ProtectedResourceMetadata {
 	return &oauthex.ProtectedResourceMetadata{
 		Resource:               resourceURL,
-		AuthorizationServers:   []string{issuer},
+		AuthorizationServers:   []string{authorizationServer},
 		ScopesSupported:        []string{"openid", "profile"},
 		BearerMethodsSupported: []string{"header"},
 		ResourceName:           "Pidgr MCP Server",
