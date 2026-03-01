@@ -19,8 +19,11 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"github.com/pidgr/pidgr-mcp/internal/auth"
+	"github.com/pidgr/pidgr-mcp/internal/observability"
 	"github.com/pidgr/pidgr-mcp/internal/tools"
 	"github.com/pidgr/pidgr-mcp/internal/transport"
+	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var version = "dev"
@@ -37,6 +40,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
+	// Initialize OTEL observability (traces + logs via OTLP, or no-op).
+	ctx := context.Background()
+	tp, err := observability.InitTracer(ctx, cfg.OTELEndpoint, "pidgr-mcp")
+	if err != nil {
+		return fmt.Errorf("init tracer: %w", err)
+	}
+	defer func() { _ = tp.Shutdown(ctx) }()
+
+	lp, err := observability.InitLogger(ctx, cfg.OTELEndpoint, "pidgr-mcp")
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	defer func() { _ = lp.Shutdown(ctx) }()
+
+	// Fan out slog to both stdout (container logs) and OTEL (remote backend).
+	otelHandler := otelslog.NewHandler("pidgr-mcp", otelslog.WithLoggerProvider(lp))
+	stdoutHandler := slog.NewJSONHandler(os.Stdout, nil)
+	slog.SetDefault(slog.New(observability.NewFanoutHandler(stdoutHandler, otelHandler)))
 
 	// Create MCP server.
 	server := mcp.NewServer(&mcp.Implementation{
@@ -101,7 +123,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 
 	httpServer := &http.Server{
 		Addr:           cfg.Addr,
-		Handler:        securityHeaders(mux),
+		Handler:        otelhttp.NewHandler(securityHeaders(mux), "pidgr-mcp"),
 		ReadTimeout:    15 * time.Second,
 		WriteTimeout:   60 * time.Second,
 		IdleTimeout:    120 * time.Second,
@@ -143,6 +165,7 @@ type config struct {
 	Addr         string
 	AuthIssuer   string
 	AuthClientID string
+	OTELEndpoint string
 }
 
 func parseConfig() (*config, error) {
@@ -153,6 +176,7 @@ func parseConfig() (*config, error) {
 		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
 		AuthIssuer:   os.Getenv("PIDGR_AUTH_ISSUER"),
 		AuthClientID: os.Getenv("PIDGR_AUTH_CLIENT_ID"),
+		OTELEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 
 	switch cfg.Transport {
