@@ -64,11 +64,21 @@ jobs:
       ECS_SERVICE: pidgr-mcp-production
       TASK_FAMILY: pidgr-mcp-production
     steps:
+      - name: Check AWS credentials
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::notice::AWS credentials not configured — skipping deploy"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+        id: check
+
       - name: Extract version from tag
+        if: steps.check.outputs.skip != 'true'
         id: version
         run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
 
       - name: Update task definition with new image
+        if: steps.check.outputs.skip != 'true'
         id: task-def
         run: |
           # Fetch current task definition
@@ -100,6 +110,7 @@ jobs:
           echo "Registered new task definition: $NEW_ARN"
 
       - name: Update ECS service
+        if: steps.check.outputs.skip != 'true'
         run: |
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" \
@@ -109,12 +120,14 @@ jobs:
             --output text
 
       - name: Wait for service stability
+        if: steps.check.outputs.skip != 'true'
         run: |
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
 
       - name: Smoke test
+        if: steps.check.outputs.skip != 'true'
         run: |
           curl -sf https://mcp.pidgr.com/.well-known/oauth-protected-resource > /dev/null
           echo "MCP health check passed"
