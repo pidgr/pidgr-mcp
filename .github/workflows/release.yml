@@ -92,7 +92,7 @@ jobs:
             '.containerDefinitions[0].image = $IMAGE' task-def.json > updated.json
 
           # Register new task definition revision (strip fields ECS doesn't accept)
-          NEW_ARN=$(jq -r '{
+          jq '{
             family,
             taskRoleArn,
             executionRoleArn,
@@ -101,8 +101,10 @@ jobs:
             requiresCompatibilities,
             cpu,
             memory
-          }' updated.json | aws ecs register-task-definition \
-            --cli-input-json file:///dev/stdin \
+          }' updated.json > register.json
+
+          NEW_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://register.json \
             --query 'taskDefinition.taskDefinitionArn' \
             --output text)
 
