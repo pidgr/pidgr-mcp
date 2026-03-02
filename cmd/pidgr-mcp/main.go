@@ -95,7 +95,8 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	verifier := auth.NewOIDCVerifier(cfg.AuthIssuer, cfg.AuthClientID)
+	oidc := auth.NewOIDCVerifier(cfg.AuthIssuer, cfg.AuthClientID)
+	verifier := auth.NewCompositeVerifier(oidc)
 
 	resourceURL := "https://mcp.pidgr.com"
 	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
