@@ -42,7 +42,7 @@ func TestCompositeVerifier_APIKeyPassthrough(t *testing.T) {
 	oidc := NewOIDCVerifier(testIssuer, "")
 	v := NewCompositeVerifier(oidc)
 
-	apiKey := "pidgr_k_test1234567890ab"
+	apiKey := "pidgr_k_test1234567890ab" //nolint:gosec // G101: test fixture, not a credential
 	info, err := v.Verify(context.Background(), apiKey, nil)
 	if err != nil {
 		t.Fatalf("Verify() error: %v", err)

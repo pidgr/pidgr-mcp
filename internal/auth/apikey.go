@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	apiKeyPrefix = "pidgr_k_"
+	apiKeyPrefix = "pidgr_k_" //nolint:gosec // G101: prefix pattern, not a credential
 	// Minimum total length: prefix (8) + at least 16 chars of key material.
 	apiKeyMinLen = 24
 	// Synthetic expiration for API key tokens. The actual expiry is enforced
