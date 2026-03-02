@@ -4,6 +4,7 @@
 package convert
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -49,6 +50,18 @@ var genericMessage = map[connect.Code]string{
 	connect.CodeDeadlineExceeded:   "Request timed out",
 }
 
+// detailCodes are client-facing error codes where the API's error message is
+// safe and useful to pass through (e.g. "requires TEAMS_ALL_READ permission").
+// Server-side codes (Internal, Unavailable, etc.) remain sanitized.
+var detailCodes = map[connect.Code]bool{
+	connect.CodeInvalidArgument:    true,
+	connect.CodeNotFound:           true,
+	connect.CodeAlreadyExists:      true,
+	connect.CodePermissionDenied:   true,
+	connect.CodeFailedPrecondition: true,
+	connect.CodeUnauthenticated:    true,
+}
+
 // ErrorResult converts an error into an MCP error result with sanitized messages.
 func ErrorResult(err error) (*mcp.CallToolResult, error) {
 	if connect.IsNotModifiedError(err) {
@@ -66,6 +79,11 @@ func ErrorResult(err error) (*mcp.CallToolResult, error) {
 		if m, ok := genericMessage[code]; ok {
 			msg = m
 		}
+		if detailCodes[code] {
+			if detail := connectMessage(err); detail != "" && detail != msg {
+				msg = msg + ": " + detail
+			}
+		}
 		return &mcp.CallToolResult{
 			IsError: true,
 			Content: []mcp.Content{
@@ -81,6 +99,15 @@ func ErrorResult(err error) (*mcp.CallToolResult, error) {
 			&mcp.TextContent{Text: "Request failed"},
 		},
 	}, nil
+}
+
+// connectMessage extracts the user-facing message from a Connect error.
+func connectMessage(err error) string {
+	var ce *connect.Error
+	if errors.As(err, &ce) {
+		return ce.Message()
+	}
+	return ""
 }
 
 // SuccessResult returns a simple success message for void responses.
