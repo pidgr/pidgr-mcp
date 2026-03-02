@@ -55,13 +55,14 @@ func TestErrorResultConnectNotFound(t *testing.T) {
 		t.Fatal("expected IsError to be true")
 	}
 	text := result.Content[0].(*mcp.TextContent).Text
-	if text != "Not found" {
-		t.Errorf("expected generic message %q, got %q", "Not found", text)
+	want := "Not found: campaign not found"
+	if text != want {
+		t.Errorf("expected %q, got %q", want, text)
 	}
 }
 
 func TestErrorResultConnectPermissionDenied(t *testing.T) {
-	err := connect.NewError(connect.CodePermissionDenied, fmt.Errorf("user lacks CAMPAIGNS_WRITE"))
+	err := connect.NewError(connect.CodePermissionDenied, fmt.Errorf("requires TEAMS_ALL_READ or TEAMS_ALL_WRITE permission"))
 	result, resultErr := ErrorResult(err)
 	if resultErr != nil {
 		t.Fatalf("unexpected error: %v", resultErr)
@@ -70,8 +71,9 @@ func TestErrorResultConnectPermissionDenied(t *testing.T) {
 		t.Fatal("expected IsError to be true")
 	}
 	text := result.Content[0].(*mcp.TextContent).Text
-	if text != "Permission denied" {
-		t.Errorf("expected generic message %q, got %q", "Permission denied", text)
+	want := "Permission denied: requires TEAMS_ALL_READ or TEAMS_ALL_WRITE permission"
+	if text != want {
+		t.Errorf("expected %q, got %q", want, text)
 	}
 }
 
@@ -82,8 +84,9 @@ func TestErrorResultConnectInvalidArgument(t *testing.T) {
 		t.Fatalf("unexpected error: %v", resultErr)
 	}
 	text := result.Content[0].(*mcp.TextContent).Text
-	if text != "Invalid input" {
-		t.Errorf("expected generic message %q, got %q", "Invalid input", text)
+	want := "Invalid input: name too long"
+	if text != want {
+		t.Errorf("expected %q, got %q", want, text)
 	}
 }
 
@@ -117,14 +120,15 @@ func TestErrorResultNotModified(t *testing.T) {
 	}
 }
 
-func TestErrorResultDoesNotLeakDetails(t *testing.T) {
-	// The backend error message should never appear in the result.
-	backendMsg := "user lacks CAMPAIGNS_WRITE on org_abc123"
-	err := connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s", backendMsg))
+func TestErrorResultDoesNotLeakServerDetails(t *testing.T) {
+	// Server-side error codes (Internal, Unavailable, etc.) should never
+	// include the backend error message — only the generic fallback.
+	backendMsg := "pq: connection refused to 10.0.1.50:5432"
+	err := connect.NewError(connect.CodeInternal, fmt.Errorf("%s", backendMsg))
 	result, _ := ErrorResult(err)
 	text := result.Content[0].(*mcp.TextContent).Text
-	if text == backendMsg || text == fmt.Sprintf("permission_denied: %s", backendMsg) {
-		t.Errorf("error result leaked backend details: %q", text)
+	if text != "Internal error" {
+		t.Errorf("expected sanitized %q, got %q", "Internal error", text)
 	}
 }
 
