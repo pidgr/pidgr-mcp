@@ -73,7 +73,7 @@ func toProtoVariables(vars []TemplateVariableInput) []*pidgrv1.TemplateVariable 
 func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_template",
-		Description: "Create a new versioned message template.",
+		Description: "Create a new versioned message template. Use list_templates first to check if a similar template already exists.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateTemplateInput) (*mcp.CallToolResult, any, error) {
 		templateType := pidgrv1.TemplateType_TEMPLATE_TYPE_UNSPECIFIED
 		if t, ok := pidgrv1.TemplateType_value[input.Type]; ok {
@@ -98,7 +98,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_template",
-		Description: "Update a template, creating a new version.",
+		Description: "Update a template, creating a new version. Use list_templates to find the template UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateTemplateInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Templates.UpdateTemplate(ctx, connect.NewRequest(&pidgrv1.UpdateTemplateRequest{
 			TemplateId: input.TemplateID,
@@ -115,7 +115,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_template",
-		Description: "Retrieve a specific template by ID and optional version.",
+		Description: "Retrieve a specific template by UUID and optional version. Use list_templates to find available template UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetTemplateInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Templates.GetTemplate(ctx, connect.NewRequest(&pidgrv1.GetTemplateRequest{
 			TemplateId: input.TemplateID,
@@ -131,7 +131,7 @@ func registerTemplateTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_templates",
-		Description: "List all templates for the organization with pagination.",
+		Description: "List all templates for the organization with pagination. Call this first to discover template UUIDs before using other template tools.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTemplatesInput) (*mcp.CallToolResult, any, error) {
 		templateType := pidgrv1.TemplateType_TEMPLATE_TYPE_UNSPECIFIED
 		if t, ok := pidgrv1.TemplateType_value[input.Type]; ok {
