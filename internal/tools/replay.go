@@ -34,7 +34,7 @@ type GetSessionSnapshotsInput struct {
 func registerReplayTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_session_recordings",
-		Description: "List session recordings with optional campaign and time range filters.",
+		Description: "List session recordings with optional campaign and time range filters. Use list_campaigns to find campaign UUIDs for filtering.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListSessionRecordingsInput) (*mcp.CallToolResult, any, error) {
 		protoReq := &pidgrv1.ListSessionRecordingsRequest{
 			CampaignId: input.CampaignID,
@@ -66,7 +66,7 @@ func registerReplayTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_session_snapshots",
-		Description: "Fetch snapshot data for a session recording.",
+		Description: "Fetch snapshot data for a session recording. Use list_session_recordings to find recording IDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetSessionSnapshotsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Replays.GetSessionSnapshots(ctx, connect.NewRequest(&pidgrv1.GetSessionSnapshotsRequest{
 			RecordingId: input.RecordingID,
