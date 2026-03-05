@@ -81,7 +81,7 @@ func toProtoProfile(p *UserProfileInput) *pidgrv1.UserProfile {
 func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "invite_user",
-		Description: "Invite a new user to the organization via email.",
+		Description: "Invite a new user to the organization via email. Use list_roles to find role UUIDs if assigning a non-default role.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input InviteUserInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.InviteUser(ctx, connect.NewRequest(&pidgrv1.InviteUserRequest{
 			Email:   input.Email,
@@ -99,7 +99,7 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user",
-		Description: "Retrieve a user by ID.",
+		Description: "Retrieve a user by UUID. Use list_users to find available user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetUserInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.GetUser(ctx, connect.NewRequest(&pidgrv1.GetUserRequest{
 			UserId: input.UserID,
@@ -114,7 +114,7 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_users",
-		Description: "List all users in the organization with pagination.",
+		Description: "List all users in the organization with pagination. Call this first to discover user UUIDs before using other user tools.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListUsersInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.ListUsers(ctx, connect.NewRequest(&pidgrv1.ListUsersRequest{
 			Pagination: &pidgrv1.Pagination{
@@ -132,7 +132,7 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_user_role",
-		Description: "Change a user's role.",
+		Description: "Change a user's role. Use list_users to find the user UUID and list_roles to find role UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateUserRoleInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.UpdateUserRole(ctx, connect.NewRequest(&pidgrv1.UpdateUserRoleRequest{
 			UserId: input.UserID,
@@ -148,7 +148,7 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "deactivate_user",
-		Description: "Deactivate a user (they will no longer receive messages).",
+		Description: "Deactivate a user (they will no longer receive messages). Use list_users to find the user UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeactivateUserInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.DeactivateUser(ctx, connect.NewRequest(&pidgrv1.DeactivateUserRequest{
 			UserId: input.UserID,
@@ -163,7 +163,7 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_user_profile",
-		Description: "Update a user's profile attributes (department, title, etc.).",
+		Description: "Update a user's profile attributes (department, title, etc.). Use list_users to find the user UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateUserProfileInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.UpdateUserProfile(ctx, connect.NewRequest(&pidgrv1.UpdateUserProfileRequest{
 			UserId:  input.UserID,

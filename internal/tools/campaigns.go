@@ -70,7 +70,7 @@ type ListDeliveriesInput struct {
 func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_campaign",
-		Description: "Create a new campaign with a template, audience, and workflow.",
+		Description: "Create a new campaign with a template, audience, and workflow. Use list_templates to find template UUIDs, and list_users or list_team_members/list_group_members to resolve audience user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateCampaignInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, maxBatchSize); err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -103,7 +103,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_campaign",
-		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed.",
+		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.UpdateCampaign(ctx, connect.NewRequest(&pidgrv1.UpdateCampaignRequest{
 			CampaignId:      input.CampaignID,
@@ -124,7 +124,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "start_campaign",
-		Description: "Start a campaign's workflow execution.",
+		Description: "Start a campaign's workflow execution. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input StartCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.StartCampaign(ctx, connect.NewRequest(&pidgrv1.StartCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -139,7 +139,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_campaign",
-		Description: "Retrieve a single campaign by ID.",
+		Description: "Retrieve a single campaign by UUID. Use list_campaigns to find available campaign UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.GetCampaign(ctx, connect.NewRequest(&pidgrv1.GetCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -154,7 +154,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_campaigns",
-		Description: "List campaigns for the organization with pagination.",
+		Description: "List campaigns for the organization with pagination. Call this first to discover campaign UUIDs before using other campaign tools.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListCampaignsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.ListCampaigns(ctx, connect.NewRequest(&pidgrv1.ListCampaignsRequest{
 			Pagination: &pidgrv1.Pagination{
@@ -172,7 +172,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "cancel_campaign",
-		Description: "Cancel a running campaign.",
+		Description: "Cancel a running campaign. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CancelCampaignInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Campaigns.CancelCampaign(ctx, connect.NewRequest(&pidgrv1.CancelCampaignRequest{
 			CampaignId: input.CampaignID,
@@ -187,7 +187,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_deliveries",
-		Description: "List delivery records for a campaign, optionally filtered by status.",
+		Description: "List delivery records for a campaign, optionally filtered by status. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListDeliveriesInput) (*mcp.CallToolResult, any, error) {
 		statusFilter := pidgrv1.DeliveryStatus_DELIVERY_STATUS_UNSPECIFIED
 		if input.StatusFilter != "" {

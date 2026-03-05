@@ -35,7 +35,7 @@ type ListScreenshotsInput struct{}
 func registerHeatmapTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "query_heatmap_data",
-		Description: "Query aggregated touch data for heatmap rendering.",
+		Description: "Query aggregated touch data for heatmap rendering. Use list_screenshots to find available screen names, list_campaigns for campaign UUIDs, and list_users for user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input QueryHeatmapDataInput) (*mcp.CallToolResult, any, error) {
 		protoReq := &pidgrv1.QueryHeatmapDataRequest{
 			ScreenName:     input.ScreenName,
