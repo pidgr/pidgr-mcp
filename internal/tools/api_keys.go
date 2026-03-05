@@ -60,7 +60,7 @@ func registerApiKeyTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_api_keys",
-		Description: "List all active API keys in the organization (metadata only, no secrets).",
+		Description: "List all active API keys in the organization (metadata only, no secrets). Call this first to discover API key UUIDs before revoking.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListApiKeysInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.ApiKeys.ListApiKeys(ctx, connect.NewRequest(&pidgrv1.ListApiKeysRequest{}))
 		if err != nil {
@@ -73,7 +73,7 @@ func registerApiKeyTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "revoke_api_key",
-		Description: "Revoke an API key immediately.",
+		Description: "Revoke an API key immediately. Use list_api_keys to find the API key UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RevokeApiKeyInput) (*mcp.CallToolResult, any, error) {
 		_, err := c.ApiKeys.RevokeApiKey(ctx, connect.NewRequest(&pidgrv1.RevokeApiKeyRequest{
 			ApiKeyId: input.ApiKeyID,

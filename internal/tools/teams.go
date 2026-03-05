@@ -60,7 +60,7 @@ type ListTeamMembersInput struct {
 func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_team",
-		Description: "Create a new organizational team (department/division).",
+		Description: "Create a new organizational team (department/division). Use list_teams first to check if the team already exists.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateTeamInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Teams.CreateTeam(ctx, connect.NewRequest(&pidgrv1.CreateTeamRequest{
 			Name:        input.Name,
@@ -76,7 +76,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_team",
-		Description: "Retrieve a team by ID.",
+		Description: "Retrieve a team by UUID. Use list_teams to find available team UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetTeamInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Teams.GetTeam(ctx, connect.NewRequest(&pidgrv1.GetTeamRequest{
 			TeamId: input.TeamID,
@@ -91,7 +91,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_teams",
-		Description: "List teams in the organization with pagination.",
+		Description: "List teams in the organization with pagination. Call this first to discover team UUIDs before using other team tools.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTeamsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Teams.ListTeams(ctx, connect.NewRequest(&pidgrv1.ListTeamsRequest{
 			Pagination: &pidgrv1.Pagination{
@@ -109,7 +109,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_team",
-		Description: "Update a team's name and/or description.",
+		Description: "Update a team's name and/or description. Use list_teams to find the team UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateTeamInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Teams.UpdateTeam(ctx, connect.NewRequest(&pidgrv1.UpdateTeamRequest{
 			TeamId:      input.TeamID,
@@ -126,7 +126,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_team",
-		Description: "Delete a team and all its memberships. Default teams cannot be deleted.",
+		Description: "Delete a team and all its memberships. Default teams cannot be deleted. Use list_teams to find the team UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeleteTeamInput) (*mcp.CallToolResult, any, error) {
 		_, err := c.Teams.DeleteTeam(ctx, connect.NewRequest(&pidgrv1.DeleteTeamRequest{
 			TeamId: input.TeamID,
@@ -140,7 +140,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "add_team_members",
-		Description: "Add users to a team (idempotent).",
+		Description: "Add users to a team (idempotent). Use list_teams to find the team UUID and list_users to find user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input AddTeamMembersInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, 100); err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -160,7 +160,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "remove_team_members",
-		Description: "Remove users from a team (idempotent).",
+		Description: "Remove users from a team (idempotent). Use list_teams to find the team UUID and list_team_members to find member UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RemoveTeamMembersInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, 100); err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -180,7 +180,7 @@ func registerTeamTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_team_members",
-		Description: "List members of a team with pagination.",
+		Description: "List members of a team with pagination. Use list_teams to find the team UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListTeamMembersInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Teams.ListTeamMembers(ctx, connect.NewRequest(&pidgrv1.ListTeamMembersRequest{
 			TeamId: input.TeamID,

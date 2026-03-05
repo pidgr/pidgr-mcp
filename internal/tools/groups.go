@@ -64,7 +64,7 @@ type GetUserGroupMembershipsInput struct {
 func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_group",
-		Description: "Create a new recipient group.",
+		Description: "Create a new recipient group. Use list_groups first to check if the group already exists.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateGroupInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Groups.CreateGroup(ctx, connect.NewRequest(&pidgrv1.CreateGroupRequest{
 			Name:        input.Name,
@@ -80,7 +80,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_group",
-		Description: "Retrieve a group by ID.",
+		Description: "Retrieve a group by UUID. Use list_groups to find available group UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetGroupInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Groups.GetGroup(ctx, connect.NewRequest(&pidgrv1.GetGroupRequest{
 			GroupId: input.GroupID,
@@ -95,7 +95,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_groups",
-		Description: "List groups in the organization with pagination.",
+		Description: "List groups in the organization with pagination. Call this first to discover group UUIDs before using other group tools.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListGroupsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Groups.ListGroups(ctx, connect.NewRequest(&pidgrv1.ListGroupsRequest{
 			Pagination: &pidgrv1.Pagination{
@@ -113,7 +113,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_group",
-		Description: "Update a group's name and/or description.",
+		Description: "Update a group's name and/or description. Use list_groups to find the group UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateGroupInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Groups.UpdateGroup(ctx, connect.NewRequest(&pidgrv1.UpdateGroupRequest{
 			GroupId:     input.GroupID,
@@ -130,7 +130,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "delete_group",
-		Description: "Delete a group and all its memberships. Default groups cannot be deleted.",
+		Description: "Delete a group and all its memberships. Default groups cannot be deleted. Use list_groups to find the group UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeleteGroupInput) (*mcp.CallToolResult, any, error) {
 		_, err := c.Groups.DeleteGroup(ctx, connect.NewRequest(&pidgrv1.DeleteGroupRequest{
 			GroupId: input.GroupID,
@@ -144,7 +144,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "add_group_members",
-		Description: "Add users to a group (idempotent).",
+		Description: "Add users to a group (idempotent). Use list_groups to find the group UUID and list_users to find user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input AddGroupMembersInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, 100); err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -164,7 +164,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "remove_group_members",
-		Description: "Remove users from a group (idempotent).",
+		Description: "Remove users from a group (idempotent). Use list_groups to find the group UUID and list_group_members to find member UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RemoveGroupMembersInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, 100); err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -184,7 +184,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_group_members",
-		Description: "List members of a group with pagination.",
+		Description: "List members of a group with pagination. Use list_groups to find the group UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListGroupMembersInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Groups.ListGroupMembers(ctx, connect.NewRequest(&pidgrv1.ListGroupMembersRequest{
 			GroupId: input.GroupID,
@@ -203,7 +203,7 @@ func registerGroupTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_user_group_memberships",
-		Description: "Get group memberships for a batch of users.",
+		Description: "Get group memberships for a batch of users. Use list_users to find user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetUserGroupMembershipsInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, 200); err != nil {
 			r, _ := convert.ErrorResult(err)
