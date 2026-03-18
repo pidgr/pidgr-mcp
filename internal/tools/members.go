@@ -53,6 +53,10 @@ type DeactivateUserInput struct {
 	UserID string `json:"user_id" jsonschema:"User UUID to deactivate"`
 }
 
+type ReactivateUserInput struct {
+	UserID string `json:"user_id" jsonschema:"User UUID to reactivate"`
+}
+
 type UpdateUserProfileInput struct {
 	UserID  string           `json:"user_id" jsonschema:"User UUID to update"`
 	Profile UserProfileInput `json:"profile" jsonschema:"Profile attributes to set"`
@@ -151,6 +155,21 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 		Description: "Deactivate a user (they will no longer receive messages). Use list_users to find the user UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeactivateUserInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Members.DeactivateUser(ctx, connect.NewRequest(&pidgrv1.DeactivateUserRequest{
+			UserId: input.UserID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "reactivate_user",
+		Description: "Reactivate a deactivated user, restoring their status to INVITED so they can complete registration again. Use list_users to find the user UUID.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ReactivateUserInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Members.ReactivateUser(ctx, connect.NewRequest(&pidgrv1.ReactivateUserRequest{
 			UserId: input.UserID,
 		}))
 		if err != nil {
