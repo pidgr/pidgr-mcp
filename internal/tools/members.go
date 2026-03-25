@@ -57,6 +57,10 @@ type ReactivateUserInput struct {
 	UserID string `json:"user_id" jsonschema:"User UUID to reactivate"`
 }
 
+type RevokeInviteInput struct {
+	UserID string `json:"user_id" jsonschema:"User UUID of the invited user to remove"`
+}
+
 type UpdateUserProfileInput struct {
 	UserID  string           `json:"user_id" jsonschema:"User UUID to update"`
 	Profile UserProfileInput `json:"profile" jsonschema:"Profile attributes to set"`
@@ -178,6 +182,20 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 		}
 		r, err := convert.ProtoResult(resp.Msg)
 		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "revoke_invite",
+		Description: "Remove an invited user who has not yet completed registration. Use list_users to find the user UUID. Only works for users with INVITED status.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input RevokeInviteInput) (*mcp.CallToolResult, any, error) {
+		_, err := c.Members.RevokeInvite(ctx, connect.NewRequest(&pidgrv1.RevokeInviteRequest{
+			UserId: input.UserID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		return convert.SuccessResult("Invite revoked successfully"), nil, nil
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
