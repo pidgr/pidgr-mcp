@@ -8,7 +8,7 @@ import (
 	"github.com/pidgr/pidgr-mcp/internal/transport"
 )
 
-// RegisterAll registers all 49 MCP tools on the server.
+// RegisterAll registers all MCP tools on the server.
 func RegisterAll(s *mcp.Server, c *transport.Clients) {
 	registerCampaignTools(s, c)
 	registerTemplateTools(s, c)
@@ -20,4 +20,9 @@ func RegisterAll(s *mcp.Server, c *transport.Clients) {
 	registerApiKeyTools(s, c)
 	registerHeatmapTools(s, c)
 	registerReplayTools(s, c)
+	registerPrivacyTools(s, c)
+	registerAuditTools(s, c)
+	registerSSOTools(s, c)
+	registerInviteLinkTools(s, c)
+	registerDeviceTools(s, c)
 }

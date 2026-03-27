@@ -44,8 +44,8 @@ github.com/lestrrat-go/option v1.0.1 h1:oAzP2fvZGQKWkvHa1/SAcFolBEca1oN+mQ7eooNB
 github.com/lestrrat-go/option v1.0.1/go.mod h1:5ZHFbivi4xwXxhxY9XHDe2FHo6/Z7WWmtT7T5nBBp3I=
 github.com/modelcontextprotocol/go-sdk v1.3.1 h1:TfqtNKOIWN4Z1oqmPAiWDC2Jq7K9OdJaooe0teoXASI=
 github.com/modelcontextprotocol/go-sdk v1.3.1/go.mod h1:DgVX498dMD8UJlseK1S5i1T4tFz2fkBk4xogC3D15nw=
-github.com/pidgr/pidgr-proto/gen/go v0.47.0 h1:4n+o60VPX+yEVIhMb1HN4+wl8ns6iopIdLTIm8SaNN4=
-github.com/pidgr/pidgr-proto/gen/go v0.47.0/go.mod h1:1Ys950e6yI8LIylImImvdVeaZ3DPpxLGGl6eRF732ig=
+github.com/pidgr/pidgr-proto/gen/go v0.48.0 h1:SU57+kux6EIH8IDLHdm2ykuDYJI0kf7V20jRIlUo7O4=
+github.com/pidgr/pidgr-proto/gen/go v0.48.0/go.mod h1:1Ys950e6yI8LIylImImvdVeaZ3DPpxLGGl6eRF732ig=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/segmentio/asm v1.2.0 h1:9BQrFxC+YOHJlTlHGkTrFWf59nbL3XnCoFLTwDCI7ys=

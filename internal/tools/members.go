@@ -57,6 +57,18 @@ type ReactivateUserInput struct {
 	UserID string `json:"user_id" jsonschema:"User UUID to reactivate"`
 }
 
+type BulkInviteUsersInput struct {
+	Emails []string `json:"emails" jsonschema:"Email addresses to invite (max 100)"`
+	RoleID string   `json:"role_id,omitempty" jsonschema:"Role UUID to assign (defaults to employee role)"`
+}
+
+type GetUserSettingsInput struct{}
+
+type UpdateUserSettingsInput struct {
+	ThemePreference string `json:"theme_preference,omitempty" jsonschema:"Theme: THEME_PREFERENCE_LIGHT, THEME_PREFERENCE_DARK, THEME_PREFERENCE_SYSTEM"`
+	PreferredLocale string `json:"preferred_locale,omitempty" jsonschema:"Locale code (e.g. en, es, pt-BR)"`
+}
+
 type RevokeInviteInput struct {
 	UserID string `json:"user_id" jsonschema:"User UUID of the invited user to remove"`
 }
@@ -205,6 +217,58 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 		resp, err := c.Members.UpdateUserProfile(ctx, connect.NewRequest(&pidgrv1.UpdateUserProfileRequest{
 			UserId:  input.UserID,
 			Profile: toProtoProfile(&input.Profile),
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "bulk_invite_users",
+		Description: "Invite multiple users at once (max 100). Use list_roles to find role UUIDs.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input BulkInviteUsersInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Members.BulkInviteUsers(ctx, connect.NewRequest(&pidgrv1.BulkInviteUsersRequest{
+			Emails: input.Emails,
+			RoleId: input.RoleID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_user_settings",
+		Description: "Get the current user's settings (theme, locale).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetUserSettingsInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Members.GetUserSettings(ctx, connect.NewRequest(&pidgrv1.GetUserSettingsRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "update_user_settings",
+		Description: "Update the current user's settings (theme preference, locale).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateUserSettingsInput) (*mcp.CallToolResult, any, error) {
+		settings := &pidgrv1.UserSettings{
+			PreferredLocale: input.PreferredLocale,
+		}
+		if input.ThemePreference != "" {
+			if v, ok := pidgrv1.ThemePreference_value[input.ThemePreference]; ok {
+				settings.ThemePreference = pidgrv1.ThemePreference(v)
+			}
+		}
+		resp, err := c.Members.UpdateUserSettings(ctx, connect.NewRequest(&pidgrv1.UpdateUserSettingsRequest{
+			Settings: settings,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
