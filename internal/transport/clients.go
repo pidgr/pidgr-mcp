@@ -24,6 +24,11 @@ type Clients struct {
 	ApiKeys       pidgrv1connect.ApiKeyServiceClient
 	Heatmaps      pidgrv1connect.HeatmapServiceClient
 	Replays       pidgrv1connect.ReplayServiceClient
+	Privacy       pidgrv1connect.PrivacyServiceClient
+	Audit         pidgrv1connect.AuditServiceClient
+	SSO           pidgrv1connect.SSOServiceClient
+	InviteLinks   pidgrv1connect.InviteLinkServiceClient
+	Devices       pidgrv1connect.DeviceServiceClient
 }
 
 // NewStaticTokenClients creates clients that inject a static API key on every request.
@@ -55,6 +60,11 @@ func newClients(baseURL string, httpClient connect.HTTPClient, opts connect.Clie
 		ApiKeys:       pidgrv1connect.NewApiKeyServiceClient(httpClient, baseURL, grpc, opts),
 		Heatmaps:      pidgrv1connect.NewHeatmapServiceClient(httpClient, baseURL, grpc, opts),
 		Replays:       pidgrv1connect.NewReplayServiceClient(httpClient, baseURL, grpc, opts),
+		Privacy:       pidgrv1connect.NewPrivacyServiceClient(httpClient, baseURL, grpc, opts),
+		Audit:         pidgrv1connect.NewAuditServiceClient(httpClient, baseURL, grpc, opts),
+		SSO:           pidgrv1connect.NewSSOServiceClient(httpClient, baseURL, grpc, opts),
+		InviteLinks:   pidgrv1connect.NewInviteLinkServiceClient(httpClient, baseURL, grpc, opts),
+		Devices:       pidgrv1connect.NewDeviceServiceClient(httpClient, baseURL, grpc, opts),
 	}
 }
 
