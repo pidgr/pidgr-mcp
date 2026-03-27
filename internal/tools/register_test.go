@@ -43,7 +43,7 @@ func TestRegisterAll(t *testing.T) {
 		t.Fatalf("ListTools error: %v", err)
 	}
 
-	want := 51
+	want := 72
 	if got := len(result.Tools); got != want {
 		t.Errorf("RegisterAll registered %d tools, want %d", got, want)
 		for _, tool := range result.Tools {
@@ -92,8 +92,9 @@ func TestToolNames(t *testing.T) {
 		// Team (8)
 		"create_team", "get_team", "list_teams", "update_team", "delete_team",
 		"add_team_members", "remove_team_members", "list_team_members",
-		// Member (8)
+		// Member (11)
 		"invite_user", "get_user", "list_users", "update_user_role", "deactivate_user", "reactivate_user", "revoke_invite", "update_user_profile",
+		"bulk_invite_users", "get_user_settings", "update_user_settings",
 		// Organization (4)
 		"create_organization", "get_organization", "update_organization", "update_sso_attribute_mappings",
 		// Role (4)
@@ -104,6 +105,17 @@ func TestToolNames(t *testing.T) {
 		"query_heatmap_data", "list_screenshots",
 		// Replay (2)
 		"list_session_recordings", "get_session_snapshots",
+		// Privacy (7)
+		"export_user_data", "delete_user_data", "cancel_deletion", "immediate_delete",
+		"list_privacy_requests", "rectify_user_data", "restrict_processing",
+		// Audit (3)
+		"list_audit_events", "export_audit_trail", "list_audit_exports",
+		// SSO (3)
+		"create_sso_provider", "get_sso_provider", "delete_sso_provider",
+		// Invite Links (3)
+		"create_invite_link", "list_invite_links", "revoke_invite_link",
+		// Devices (2)
+		"list_devices", "list_member_devices",
 	}
 
 	registered := make(map[string]bool)
