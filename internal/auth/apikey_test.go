@@ -5,11 +5,11 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 )
 
 func TestIsAPIKey(t *testing.T) {
@@ -37,15 +37,11 @@ func TestIsAPIKey(t *testing.T) {
 	}
 }
 
-func TestCompositeVerifier_APIKeyPassthrough(t *testing.T) {
-	// OIDC verifier is not used for API keys — pass nil-like verifier.
-	oidc := NewOIDCVerifier(testIssuer, "")
-	v := NewCompositeVerifier(oidc)
-
+func TestVerifyAPIKey_Valid(t *testing.T) {
 	apiKey := "pidgr_k_test1234567890ab" //nolint:gosec // G101: test fixture, not a credential
-	info, err := v.Verify(context.Background(), apiKey, nil)
+	info, err := VerifyAPIKey(context.Background(), apiKey, nil)
 	if err != nil {
-		t.Fatalf("Verify() error: %v", err)
+		t.Fatalf("VerifyAPIKey() error: %v", err)
 	}
 
 	// raw_token must be set for dynamicTokenInterceptor.
@@ -68,51 +64,26 @@ func TestCompositeVerifier_APIKeyPassthrough(t *testing.T) {
 	}
 }
 
-func TestCompositeVerifier_JWTDelegation(t *testing.T) {
-	setup := newTestKeySetup(t)
-	defer setup.server.Close()
-
-	oidc := NewOIDCVerifier(testIssuer, "")
-	oidc.jwksURL = setup.server.URL
-	v := NewCompositeVerifier(oidc)
-
-	token, err := jwt.NewBuilder().
-		Issuer(testIssuer).
-		Subject("user-789").
-		Expiration(time.Now().Add(time.Hour)).
-		Claim("custom:org_id", "org-012").
-		Build()
-	if err != nil {
-		t.Fatalf("failed to build token: %v", err)
+func TestVerifyAPIKey_Invalid(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{"jwt token", "eyJhbGciOiJSUzI1NiJ9.payload.sig"},
+		{"wrong prefix", "sk_live_abc1234567890123"},
+		{"too short", "pidgr_k_short"},
+		{"empty", ""},
 	}
 
-	signed, err := jwt.Sign(token, jwt.WithKey(jwa.RS256, setup.jwkKey))
-	if err != nil {
-		t.Fatalf("failed to sign token: %v", err)
-	}
-
-	info, err := v.Verify(context.Background(), string(signed), nil)
-	if err != nil {
-		t.Fatalf("Verify() error: %v", err)
-	}
-
-	// OIDC path sets UserID from sub claim.
-	if info.UserID != "user-789" {
-		t.Errorf("UserID = %q, want %q", info.UserID, "user-789")
-	}
-	if orgID, ok := info.Extra["org_id"].(string); !ok || orgID != "org-012" {
-		t.Errorf("org_id = %v, want %q", info.Extra["org_id"], "org-012")
-	}
-}
-
-func TestCompositeVerifier_InvalidJWT(t *testing.T) {
-	// Non-API-key token that fails OIDC validation should return an error.
-	oidc := NewOIDCVerifier(testIssuer, "")
-	oidc.jwksURL = "http://localhost:1/nonexistent"
-	v := NewCompositeVerifier(oidc)
-
-	_, err := v.Verify(context.Background(), "not-an-api-key", nil)
-	if err == nil {
-		t.Fatal("expected error for invalid JWT, got nil")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := VerifyAPIKey(context.Background(), tt.token, nil)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !errors.Is(err, mcpauth.ErrInvalidToken) {
+				t.Errorf("error should be ErrInvalidToken, got: %v", err)
+			}
+		})
 	}
 }

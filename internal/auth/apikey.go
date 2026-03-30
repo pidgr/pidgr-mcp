@@ -22,24 +22,12 @@ const (
 	apiKeyTTL = 24 * time.Hour
 )
 
-// CompositeVerifier delegates token verification to either an API key
-// pass-through path or an OIDC JWT verifier based on the token prefix.
-type CompositeVerifier struct {
-	oidc *OIDCVerifier
-}
-
-// NewCompositeVerifier wraps an OIDCVerifier with API key detection.
-func NewCompositeVerifier(oidc *OIDCVerifier) *CompositeVerifier {
-	return &CompositeVerifier{oidc: oidc}
-}
-
-// Verify implements auth.TokenVerifier for the MCP SDK.
-// Tokens with the pidgr_k_ prefix are passed through without cryptographic
-// validation — the downstream API performs SHA-256 lookup and RBAC checks.
-// All other tokens are delegated to the OIDC verifier.
-func (v *CompositeVerifier) Verify(ctx context.Context, token string, req *http.Request) (*mcpauth.TokenInfo, error) {
+// VerifyAPIKey validates that the token is a well-formed pidgr API key.
+// The downstream API performs the actual SHA-256 lookup and RBAC checks —
+// this verifier only checks the prefix and minimum length.
+func VerifyAPIKey(_ context.Context, token string, _ *http.Request) (*mcpauth.TokenInfo, error) {
 	if !isAPIKey(token) {
-		return v.oidc.Verify(ctx, token, req)
+		return nil, mcpauth.ErrInvalidToken
 	}
 
 	return &mcpauth.TokenInfo{
