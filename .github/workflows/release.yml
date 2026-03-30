@@ -131,5 +131,10 @@ jobs:
       - name: Smoke test
         if: steps.check.outputs.skip != 'true'
         run: |
-          curl -sf https://mcp.pidgr.com/.well-known/oauth-protected-resource > /dev/null
-          echo "MCP health check passed"
+          HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" https://mcp.pidgr.com/)
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "MCP smoke test passed (auth middleware responding)"
+          else
+            echo "MCP smoke test failed (expected 401, got $HTTP_CODE)"
+            exit 1
+          fi
