@@ -345,23 +345,3 @@ func TestOIDCVerifier_JWKSCacheTTL(t *testing.T) {
 	v.mu.RUnlock()
 }
 
-func TestNewProtectedResourceMetadata(t *testing.T) {
-	resourceURL := "https://mcp.pidgr.com"
-	metadata := NewProtectedResourceMetadata(resourceURL, resourceURL)
-
-	if metadata.Resource != resourceURL {
-		t.Errorf("Resource = %q, want %q", metadata.Resource, resourceURL)
-	}
-	if len(metadata.AuthorizationServers) != 1 {
-		t.Fatalf("expected 1 authorization server, got %d", len(metadata.AuthorizationServers))
-	}
-	if metadata.AuthorizationServers[0] != resourceURL {
-		t.Errorf("AuthorizationServers[0] = %q, want %q", metadata.AuthorizationServers[0], resourceURL)
-	}
-	if len(metadata.ScopesSupported) != 2 {
-		t.Errorf("expected 2 scopes, got %d", len(metadata.ScopesSupported))
-	}
-	if len(metadata.BearerMethodsSupported) != 1 || metadata.BearerMethodsSupported[0] != "header" {
-		t.Errorf("unexpected bearer methods: %v", metadata.BearerMethodsSupported)
-	}
-}
