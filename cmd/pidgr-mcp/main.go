@@ -95,24 +95,13 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	oidc := auth.NewOIDCVerifier(cfg.AuthIssuer, cfg.AuthClientID)
-	verifier := auth.NewCompositeVerifier(oidc)
-
-	resourceURL := "https://mcp.pidgr.com"
-	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
-
-	metadata := auth.NewProtectedResourceMetadata(resourceURL, resourceURL)
-
-	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, &mcpauth.RequireBearerTokenOptions{
-		ResourceMetadataURL: metadataURL,
-	})
+	authMiddleware := mcpauth.RequireBearerToken(auth.VerifyAPIKey, nil)
 
 	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
 
 	mux := http.NewServeMux()
-	mux.Handle("/.well-known/oauth-protected-resource", mcpauth.ProtectedResourceMetadataHandler(metadata))
 	mux.Handle("/", authMiddleware(handler))
 
 	httpServer := &http.Server{
@@ -157,8 +146,6 @@ type config struct {
 	ApiURL       string
 	apiKey       string
 	Addr         string
-	AuthIssuer   string
-	AuthClientID string
 	OTELEndpoint string
 }
 
@@ -168,8 +155,6 @@ func parseConfig() (*config, error) {
 		ApiURL:       getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
 		apiKey:       os.Getenv("PIDGR_API_KEY"),
 		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
-		AuthIssuer:   os.Getenv("PIDGR_AUTH_ISSUER"),
-		AuthClientID: os.Getenv("PIDGR_AUTH_CLIENT_ID"),
 		OTELEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 
@@ -179,9 +164,7 @@ func parseConfig() (*config, error) {
 			return nil, fmt.Errorf("PIDGR_API_KEY is required for stdio mode")
 		}
 	case "http":
-		if cfg.AuthIssuer == "" {
-			return nil, fmt.Errorf("PIDGR_AUTH_ISSUER is required for http mode")
-		}
+		// HTTP mode validates API keys via the Authorization header.
 	default:
 		return nil, fmt.Errorf("PIDGR_MCP_TRANSPORT must be 'stdio' or 'http', got %q", cfg.Transport)
 	}
