@@ -98,21 +98,13 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	oidc := auth.NewOIDCVerifier(cfg.AuthIssuer, cfg.AuthClientID)
 	verifier := auth.NewCompositeVerifier(oidc)
 
-	resourceURL := "https://mcp.pidgr.com"
-	metadataURL := resourceURL + "/.well-known/oauth-protected-resource"
-
-	metadata := auth.NewProtectedResourceMetadata(resourceURL, resourceURL)
-
-	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, &mcpauth.RequireBearerTokenOptions{
-		ResourceMetadataURL: metadataURL,
-	})
+	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, nil)
 
 	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
 
 	mux := http.NewServeMux()
-	mux.Handle("/.well-known/oauth-protected-resource", mcpauth.ProtectedResourceMetadataHandler(metadata))
 	mux.Handle("/", authMiddleware(handler))
 
 	httpServer := &http.Server{
