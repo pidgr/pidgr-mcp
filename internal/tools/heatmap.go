@@ -22,9 +22,8 @@ type QueryHeatmapDataInput struct {
 	DateFrom       string   `json:"date_from,omitempty" jsonschema:"Start of time range (RFC 3339)"`
 	DateTo         string   `json:"date_to,omitempty" jsonschema:"End of time range (RFC 3339)"`
 	CampaignID     string   `json:"campaign_id,omitempty" jsonschema:"Filter by campaign UUID"`
-	UserID         string   `json:"user_id,omitempty" jsonschema:"Filter by user UUID (required for USER_SPECIFIC mode)"`
 	GridResolution float32  `json:"grid_resolution,omitempty" jsonschema:"Grid resolution (0.005 to 0.1, default 0.02)"`
-	Mode           string   `json:"mode,omitempty" jsonschema:"Aggregation mode: TOTAL (default), MEDIAN, or USER_SPECIFIC"`
+	Mode           string   `json:"mode,omitempty" jsonschema:"Aggregation mode: TOTAL (default) or MEDIAN"`
 	EventTypes     []string `json:"event_types,omitempty" jsonschema:"Filter by event types: TAP, LONG_PRESS, SCROLL, ACTION_CLICK"`
 }
 
@@ -35,12 +34,11 @@ type ListScreenshotsInput struct{}
 func registerHeatmapTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "query_heatmap_data",
-		Description: "Query aggregated touch data for heatmap rendering. Use list_screenshots to find available screen names, list_campaigns for campaign UUIDs, and list_users for user UUIDs.",
+		Description: "Query aggregated touch data for heatmap rendering. Data is k-anonymized (no user identification). Use list_screenshots for screen names, list_campaigns for campaign UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input QueryHeatmapDataInput) (*mcp.CallToolResult, any, error) {
 		protoReq := &pidgrv1.QueryHeatmapDataRequest{
 			ScreenName:     input.ScreenName,
 			CampaignId:     input.CampaignID,
-			UserId:         input.UserID,
 			GridResolution: input.GridResolution,
 		}
 
