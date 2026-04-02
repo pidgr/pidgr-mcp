@@ -105,7 +105,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"resource":"https://mcp.pidgr.com"}`))
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	mux.Handle("/", authMiddleware(handler))
 
