@@ -36,6 +36,14 @@ type SsoMappingInput struct {
 	ProfileField string `json:"profile_field" jsonschema:"Target profile field name"`
 }
 
+type RotateAnalyticsSaltInput struct {
+	NewBucketCount int32 `json:"new_bucket_count,omitempty" jsonschema:"New bucket count (must be >= current, 0 keeps current)"`
+}
+
+type UpdateAnalyticsEpsilonInput struct {
+	Epsilon float32 `json:"epsilon" jsonschema:"Differential privacy epsilon (0.5 to 5.0)"`
+}
+
 type UpdateSsoAttributeMappingsInput struct {
 	SsoAttributeMappings []SsoMappingInput `json:"sso_attribute_mappings" jsonschema:"Complete list of SSO mappings (replaces all existing)"`
 }
@@ -129,6 +137,36 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 		}
 		resp, err := c.Organizations.UpdateSsoAttributeMappings(ctx, connect.NewRequest(&pidgrv1.UpdateSsoAttributeMappingsRequest{
 			SsoAttributeMappings: mappings,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "rotate_analytics_salt",
+		Description: "Rotate the k-anonymization salt and optionally increase the bucket count. Existing data keeps old bucket assignments.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input RotateAnalyticsSaltInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.RotateAnalyticsSalt(ctx, connect.NewRequest(&pidgrv1.RotateAnalyticsSaltRequest{
+			NewBucketCount: input.NewBucketCount,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "update_analytics_epsilon",
+		Description: "Update the differential privacy epsilon parameter (0.5 to 5.0). Lower = more privacy, higher = more precision.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateAnalyticsEpsilonInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.UpdateAnalyticsEpsilon(ctx, connect.NewRequest(&pidgrv1.UpdateAnalyticsEpsilonRequest{
+			Epsilon: input.Epsilon,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
