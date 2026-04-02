@@ -46,6 +46,10 @@ type RestrictProcessingInput struct {
 	UserID string `json:"user_id" jsonschema:"User email or UUID to restrict processing for"`
 }
 
+type GetDataExistenceConfirmationInput struct {
+	UserID string `json:"user_id" jsonschema:"User email or UUID to check data existence for"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerPrivacyTools(s *mcp.Server, c *transport.Clients) {
@@ -145,6 +149,21 @@ func registerPrivacyTools(s *mcp.Server, c *transport.Clients) {
 		Description: "Restrict processing of personal data for a user (GDPR Art. 18).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input RestrictProcessingInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Privacy.RestrictProcessing(ctx, connect.NewRequest(&pidgrv1.RestrictProcessingRequest{
+			UserId: input.UserID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_data_existence_confirmation",
+		Description: "Confirm whether personal data exists for a user (LGPD confirmação de existência).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetDataExistenceConfirmationInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Privacy.GetDataExistenceConfirmation(ctx, connect.NewRequest(&pidgrv1.GetDataExistenceConfirmationRequest{
 			UserId: input.UserID,
 		}))
 		if err != nil {
