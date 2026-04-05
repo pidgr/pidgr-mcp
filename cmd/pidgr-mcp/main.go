@@ -102,11 +102,6 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	}, nil)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
 	mux.Handle("/", authMiddleware(handler))
 
 	httpServer := &http.Server{

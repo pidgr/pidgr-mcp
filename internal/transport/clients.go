@@ -29,6 +29,7 @@ type Clients struct {
 	SSO           pidgrv1connect.SSOServiceClient
 	InviteLinks   pidgrv1connect.InviteLinkServiceClient
 	Devices       pidgrv1connect.DeviceServiceClient
+	Insights      pidgrv1connect.InsightsServiceClient
 }
 
 // NewStaticTokenClients creates clients that inject a static API key on every request.
@@ -39,8 +40,9 @@ func NewStaticTokenClients(baseURL, apiKey string) *Clients {
 	return newClients(baseURL, http.DefaultClient, opts)
 }
 
-// NewDynamicTokenClients creates clients that extract the JWT from the MCP auth
-// context on each request. Used for HTTP mode where the token comes from OAuth.
+// NewDynamicTokenClients creates clients that extract the API key from the MCP
+// auth context on each request. Used for HTTP mode where the token is verified
+// by the RequireBearerToken middleware.
 func NewDynamicTokenClients(baseURL string) *Clients {
 	interceptor := dynamicTokenInterceptor()
 	opts := connect.WithInterceptors(interceptor)
@@ -65,6 +67,7 @@ func newClients(baseURL string, httpClient connect.HTTPClient, opts connect.Clie
 		SSO:           pidgrv1connect.NewSSOServiceClient(httpClient, baseURL, grpc, opts),
 		InviteLinks:   pidgrv1connect.NewInviteLinkServiceClient(httpClient, baseURL, grpc, opts),
 		Devices:       pidgrv1connect.NewDeviceServiceClient(httpClient, baseURL, grpc, opts),
+		Insights:      pidgrv1connect.NewInsightsServiceClient(httpClient, baseURL, grpc, opts),
 	}
 }
 
