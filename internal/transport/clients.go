@@ -40,8 +40,9 @@ func NewStaticTokenClients(baseURL, apiKey string) *Clients {
 	return newClients(baseURL, http.DefaultClient, opts)
 }
 
-// NewDynamicTokenClients creates clients that extract the JWT from the MCP auth
-// context on each request. Used for HTTP mode where the token comes from OAuth.
+// NewDynamicTokenClients creates clients that extract the API key from the MCP
+// auth context on each request. Used for HTTP mode where the token is verified
+// by the RequireBearerToken middleware.
 func NewDynamicTokenClients(baseURL string) *Clients {
 	interceptor := dynamicTokenInterceptor()
 	opts := connect.WithInterceptors(interceptor)
