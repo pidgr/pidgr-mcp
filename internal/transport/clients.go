@@ -29,6 +29,7 @@ type Clients struct {
 	SSO           pidgrv1connect.SSOServiceClient
 	InviteLinks   pidgrv1connect.InviteLinkServiceClient
 	Devices       pidgrv1connect.DeviceServiceClient
+	Insights      pidgrv1connect.InsightsServiceClient
 }
 
 // NewStaticTokenClients creates clients that inject a static API key on every request.
@@ -65,6 +66,7 @@ func newClients(baseURL string, httpClient connect.HTTPClient, opts connect.Clie
 		SSO:           pidgrv1connect.NewSSOServiceClient(httpClient, baseURL, grpc, opts),
 		InviteLinks:   pidgrv1connect.NewInviteLinkServiceClient(httpClient, baseURL, grpc, opts),
 		Devices:       pidgrv1connect.NewDeviceServiceClient(httpClient, baseURL, grpc, opts),
+		Insights:      pidgrv1connect.NewInsightsServiceClient(httpClient, baseURL, grpc, opts),
 	}
 }
 

@@ -5,21 +5,30 @@ package tools
 
 import (
 	"context"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	pidgrv1 "github.com/pidgr/pidgr-proto/gen/go/pidgr/v1"
 	"github.com/pidgr/pidgr-mcp/internal/convert"
 	"github.com/pidgr/pidgr-mcp/internal/transport"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ── Input types ─────────────────────────────────────────────────────────────
 
 type CreateOrganizationInput struct {
-	Name        string `json:"name" jsonschema:"Organization name (max 200 chars)"`
-	AdminEmail  string `json:"admin_email,omitempty" jsonschema:"Email for the initial admin user (required for API key auth)"`
-	Industry    string `json:"industry,omitempty" jsonschema:"Industry: TECHNOLOGY/FINANCE/HEALTHCARE/EDUCATION/RETAIL/MANUFACTURING/MEDIA/OTHER"`
-	CompanySize string `json:"company_size,omitempty" jsonschema:"Employee count: 1_200/200_500/500_1000/1000_5000/5000_PLUS"`
+	Name                 string `json:"name" jsonschema:"Organization name (max 200 chars)"`
+	AdminEmail           string `json:"admin_email,omitempty" jsonschema:"Email for the initial admin user (required for API key auth)"`
+	Industry             string `json:"industry,omitempty" jsonschema:"Industry: TECHNOLOGY/FINANCE/HEALTHCARE/EDUCATION/RETAIL/MANUFACTURING/MEDIA/OTHER"`
+	CompanySize          string `json:"company_size,omitempty" jsonschema:"Employee count: 1_200/200_500/500_1000/1000_5000/5000_PLUS"`
+	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance framework: EU, LATAM, APAC, US (default: US)"`
+}
+
+type CreateSandboxOrganizationInput struct {
+	Name                 string `json:"name" jsonschema:"Sandbox organization name"`
+	ExpiresInDays        int32  `json:"expires_in_days" jsonschema:"TTL in days (max 30, max 14 with SCIM)"`
+	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance: EU, LATAM, APAC, US (default: US)"`
 }
 
 type GetOrganizationInput struct{}
@@ -167,6 +176,24 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateAnalyticsEpsilonInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Organizations.UpdateAnalyticsEpsilon(ctx, connect.NewRequest(&pidgrv1.UpdateAnalyticsEpsilonRequest{
 			Epsilon: input.Epsilon,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "create_sandbox_organization",
+		Description: "Create a sandbox organization for testing configurations. Auto-deletes after TTL. SCIM provisioning allowed for IdP testing (DB-only, no Cognito users).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateSandboxOrganizationInput) (*mcp.CallToolResult, any, error) {
+		expiresAt := timestamppb.New(time.Now().Add(time.Duration(input.ExpiresInDays) * 24 * time.Hour))
+		resp, err := c.Organizations.CreateSandboxOrganization(ctx, connect.NewRequest(&pidgrv1.CreateSandboxOrganizationRequest{
+			Name:                 input.Name,
+			ExpiresAt:            expiresAt,
+			DataGovernanceRegion: input.DataGovernanceRegion,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
