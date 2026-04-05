@@ -25,4 +25,6 @@ func RegisterAll(s *mcp.Server, c *transport.Clients) {
 	registerSSOTools(s, c)
 	registerInviteLinkTools(s, c)
 	registerDeviceTools(s, c)
+	registerInsightsTools(s, c)
+	registerTemplateTranslationTools(s, c)
 }
