@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   goreleaser:
@@ -57,28 +58,24 @@ jobs:
     runs-on: ubuntu-latest
     needs: [goreleaser]
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: us-east-1
       ECS_CLUSTER: pidgr-production
       ECS_SERVICE: pidgr-mcp-production
       TASK_FAMILY: pidgr-mcp-production
     steps:
-      - name: Check AWS credentials
-        run: |
-          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
-            echo "::notice::AWS credentials not configured — skipping deploy"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          fi
-        id: check
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+        with:
+          role-to-assume: arn:aws:iam::294382260612:role/github-ci-ecs
+          aws-region: us-east-1
 
       - name: Extract version from tag
-        if: steps.check.outputs.skip != 'true'
+
         id: version
         run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Update task definition with new image
-        if: steps.check.outputs.skip != 'true'
+
         id: task-def
         run: |
           # Fetch current task definition
@@ -112,7 +109,7 @@ jobs:
           echo "Registered new task definition: $NEW_ARN"
 
       - name: Update ECS service
-        if: steps.check.outputs.skip != 'true'
+
         run: |
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" \
@@ -122,14 +119,14 @@ jobs:
             --output text
 
       - name: Wait for service stability
-        if: steps.check.outputs.skip != 'true'
+
         run: |
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
 
       - name: Smoke test
-        if: steps.check.outputs.skip != 'true'
+
         run: |
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" https://mcp.pidgr.com/)
           if [ "$HTTP_CODE" = "401" ]; then
