@@ -103,6 +103,7 @@ func TestNewStaticTokenClients(t *testing.T) {
 	clients := NewStaticTokenClients(ts.URL, "test-key")
 	if clients == nil {
 		t.Fatal("expected non-nil clients")
+		return
 	}
 	if clients.Campaigns == nil {
 		t.Error("expected non-nil Campaigns client")
@@ -145,6 +146,7 @@ func TestNewDynamicTokenClients(t *testing.T) {
 	clients := NewDynamicTokenClients(ts.URL)
 	if clients == nil {
 		t.Fatal("expected non-nil clients")
+		return
 	}
 	if clients.Campaigns == nil {
 		t.Error("expected non-nil Campaigns client")
