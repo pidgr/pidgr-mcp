@@ -17,6 +17,8 @@ import (
 
 // ── Input types ─────────────────────────────────────────────────────────────
 
+type ListUserOrganizationsInput struct{}
+
 type CreateOrganizationInput struct {
 	Name                 string `json:"name" jsonschema:"Organization name (max 200 chars)"`
 	AdminEmail           string `json:"admin_email,omitempty" jsonschema:"Email for the initial admin user (required for API key auth)"`
@@ -177,6 +179,19 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 		resp, err := c.Organizations.UpdateAnalyticsEpsilon(ctx, connect.NewRequest(&pidgrv1.UpdateAnalyticsEpsilonRequest{
 			Epsilon: input.Epsilon,
 		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_user_organizations",
+		Description: "List all organizations the authenticated user belongs to. Excludes expired sandbox orgs. No org context required.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListUserOrganizationsInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.ListUserOrganizations(ctx, connect.NewRequest(&pidgrv1.ListUserOrganizationsRequest{}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
