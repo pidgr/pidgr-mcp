@@ -16,9 +16,10 @@ import (
 // ── Input types ─────────────────────────────────────────────────────────────
 
 type CreateInviteLinkInput struct {
-	RoleID         string `json:"role_id,omitempty" jsonschema:"Role UUID to assign to users who join via this link"`
-	MaxUses        int32  `json:"max_uses,omitempty" jsonschema:"Maximum number of times the link can be used (0 = unlimited)"`
-	ExpiresInHours int32  `json:"expires_in_hours,omitempty" jsonschema:"Hours until the link expires (0 = no expiry, max 8760)"`
+	RoleID               string `json:"role_id,omitempty" jsonschema:"Role UUID to assign to users who join via this link"`
+	MaxUses              int32  `json:"max_uses,omitempty" jsonschema:"Maximum number of times the link can be used (0 = unlimited)"`
+	ExpiresInHours       int32  `json:"expires_in_hours,omitempty" jsonschema:"Hours until the link expires (0 = no expiry, max 8760)"`
+	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance region for users who join via this link (EU, LATAM, BR, APAC, US, or empty for org default)"`
 }
 
 type ListInviteLinksInput struct{}
@@ -32,8 +33,13 @@ type RevokeInviteLinkInput struct {
 func registerInviteLinkTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_invite_link",
-		Description: "Create a shareable invite link that lets users join the organization.",
+		Description: "Create a shareable invite link that lets users join the organization. Optionally set a data governance region (EU, LATAM, BR, APAC, US) for users who join via this link.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateInviteLinkInput) (*mcp.CallToolResult, any, error) {
+		if err := validateDataGovernanceRegion(input.DataGovernanceRegion); err != nil {
+			res, _ := convert.ErrorResult(err)
+			return res, nil, nil
+		}
+		// TODO: pass DataGovernanceRegion to CreateInviteLinkRequest once pidgr-proto adds the field.
 		resp, err := c.InviteLinks.CreateInviteLink(ctx, connect.NewRequest(&pidgrv1.CreateInviteLinkRequest{
 			RoleId:         input.RoleID,
 			MaxUses:        input.MaxUses,

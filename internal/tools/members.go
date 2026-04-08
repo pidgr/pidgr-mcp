@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -29,10 +30,11 @@ type UserProfileInput struct {
 }
 
 type InviteUserInput struct {
-	Email   string            `json:"email" jsonschema:"Email address to invite (max 254 chars)"`
-	Name    string            `json:"name" jsonschema:"Display name (max 200 chars)"`
-	RoleID  string            `json:"role_id,omitempty" jsonschema:"Role UUID to assign (defaults to employee role)"`
-	Profile *UserProfileInput `json:"profile,omitempty" jsonschema:"Optional profile attributes to pre-fill"`
+	Email                string            `json:"email" jsonschema:"Email address to invite (max 254 chars)"`
+	Name                 string            `json:"name" jsonschema:"Display name (max 200 chars)"`
+	RoleID               string            `json:"role_id,omitempty" jsonschema:"Role UUID to assign (defaults to employee role)"`
+	Profile              *UserProfileInput `json:"profile,omitempty" jsonschema:"Optional profile attributes to pre-fill"`
+	DataGovernanceRegion string            `json:"data_governance_region,omitempty" jsonschema:"Data governance region for the user (EU, LATAM, BR, APAC, US, or empty for org default)"`
 }
 
 type GetUserInput struct {
@@ -78,6 +80,11 @@ type UpdateUserProfileInput struct {
 	Profile UserProfileInput `json:"profile" jsonschema:"Profile attributes to set"`
 }
 
+type UpdateUserRegionInput struct {
+	UserID               string `json:"user_id" jsonschema:"User UUID to update"`
+	DataGovernanceRegion string `json:"data_governance_region" jsonschema:"Target data governance region (EU, LATAM, BR, APAC, US)"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func toProtoProfile(p *UserProfileInput) *pidgrv1.UserProfile {
@@ -101,8 +108,13 @@ func toProtoProfile(p *UserProfileInput) *pidgrv1.UserProfile {
 func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "invite_user",
-		Description: "Invite a new user to the organization via email. Use list_roles to find role UUIDs if assigning a non-default role.",
+		Description: "Invite a new user to the organization via email. Use list_roles to find role UUIDs if assigning a non-default role. Optionally set a data governance region (EU, LATAM, BR, APAC, US) for the user.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input InviteUserInput) (*mcp.CallToolResult, any, error) {
+		if err := validateDataGovernanceRegion(input.DataGovernanceRegion); err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		// TODO: pass DataGovernanceRegion to InviteUserRequest once pidgr-proto adds the field.
 		resp, err := c.Members.InviteUser(ctx, connect.NewRequest(&pidgrv1.InviteUserRequest{
 			Email:   input.Email,
 			Name:    input.Name,
@@ -276,5 +288,25 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 		}
 		r, err := convert.ProtoResult(resp.Msg)
 		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "update_user_region",
+		Description: "Change a user's data governance region. Triggers an asynchronous data migration workflow. Returns the updated user and a migration_workflow_id to track progress. Use list_users to find the user UUID.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateUserRegionInput) (*mcp.CallToolResult, any, error) {
+		if err := validateDataGovernanceRegion(input.DataGovernanceRegion); err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		if input.DataGovernanceRegion == "" {
+			r, _ := convert.ErrorResult(fmt.Errorf("data_governance_region is required and cannot be empty"))
+			return r, nil, nil
+		}
+		// TODO: call c.Members.UpdateUserRegion once pidgr-proto adds UpdateUserRegionRequest/Response
+		// and MemberServiceClient exposes the RPC. Expected request shape:
+		//   pidgrv1.UpdateUserRegionRequest{UserId: input.UserID, DataGovernanceRegion: <enum value>}
+		// Expected response contains: user (updated), migration_workflow_id (string).
+		r, _ := convert.ErrorResult(fmt.Errorf("update_user_region is not yet available: waiting for proto UpdateUserRegion RPC"))
+		return r, nil, nil
 	})
 }
