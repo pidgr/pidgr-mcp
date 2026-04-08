@@ -39,11 +39,11 @@ func registerInviteLinkTools(s *mcp.Server, c *transport.Clients) {
 			res, _ := convert.ErrorResult(err)
 			return res, nil, nil
 		}
-		// TODO: pass DataGovernanceRegion to CreateInviteLinkRequest once pidgr-proto adds the field.
 		resp, err := c.InviteLinks.CreateInviteLink(ctx, connect.NewRequest(&pidgrv1.CreateInviteLinkRequest{
-			RoleId:         input.RoleID,
-			MaxUses:        input.MaxUses,
-			ExpiresInHours: input.ExpiresInHours,
+			RoleId:               input.RoleID,
+			MaxUses:              input.MaxUses,
+			ExpiresInHours:       input.ExpiresInHours,
+			DataGovernanceRegion: input.DataGovernanceRegion,
 		}))
 		if err != nil {
 			res, _ := convert.ErrorResult(err)
