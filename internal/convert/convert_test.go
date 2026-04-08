@@ -25,6 +25,7 @@ func TestProtoResult(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if len(result.Content) != 1 {
 		t.Fatalf("expected 1 content item, got %d", len(result.Content))
@@ -136,6 +137,7 @@ func TestSuccessResult(t *testing.T) {
 	result := SuccessResult("deleted successfully")
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 	if result.IsError {
 		t.Fatal("expected IsError to be false")
