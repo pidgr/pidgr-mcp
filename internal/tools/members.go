@@ -114,12 +114,12 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
 		}
-		// TODO: pass DataGovernanceRegion to InviteUserRequest once pidgr-proto adds the field.
 		resp, err := c.Members.InviteUser(ctx, connect.NewRequest(&pidgrv1.InviteUserRequest{
-			Email:   input.Email,
-			Name:    input.Name,
-			RoleId:  input.RoleID,
-			Profile: toProtoProfile(input.Profile),
+			Email:                input.Email,
+			Name:                 input.Name,
+			RoleId:               input.RoleID,
+			Profile:              toProtoProfile(input.Profile),
+			DataGovernanceRegion: input.DataGovernanceRegion,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -302,11 +302,15 @@ func registerMemberTools(s *mcp.Server, c *transport.Clients) {
 			r, _ := convert.ErrorResult(fmt.Errorf("data_governance_region is required and cannot be empty"))
 			return r, nil, nil
 		}
-		// TODO: call c.Members.UpdateUserRegion once pidgr-proto adds UpdateUserRegionRequest/Response
-		// and MemberServiceClient exposes the RPC. Expected request shape:
-		//   pidgrv1.UpdateUserRegionRequest{UserId: input.UserID, DataGovernanceRegion: <enum value>}
-		// Expected response contains: user (updated), migration_workflow_id (string).
-		r, _ := convert.ErrorResult(fmt.Errorf("update_user_region is not yet available: waiting for proto UpdateUserRegion RPC"))
-		return r, nil, nil
+		resp, err := c.Members.UpdateUserRegion(ctx, connect.NewRequest(&pidgrv1.UpdateUserRegionRequest{
+			UserId:               input.UserID,
+			DataGovernanceRegion: input.DataGovernanceRegion,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
 	})
 }
