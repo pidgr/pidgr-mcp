@@ -50,6 +50,13 @@ type GetDataExistenceConfirmationInput struct {
 	UserID string `json:"user_id" jsonschema:"User email or UUID to check data existence for"`
 }
 
+type ListMyPrivacyRequestsInput struct {
+	PageSize    int32  `json:"page_size,omitempty" jsonschema:"Max items per page (1-100, default 25)"`
+	PageToken   string `json:"page_token,omitempty" jsonschema:"Pagination token from previous response"`
+	RequestType string `json:"request_type,omitempty" jsonschema:"Filter by type: export, rectify (empty = all)"`
+	Status      string `json:"status,omitempty" jsonschema:"Filter by status: PENDING, COMPLETED, CANCELLED (empty = all)"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerPrivacyTools(s *mcp.Server, c *transport.Clients) {
@@ -165,6 +172,30 @@ func registerPrivacyTools(s *mcp.Server, c *transport.Clients) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetDataExistenceConfirmationInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Privacy.GetDataExistenceConfirmation(ctx, connect.NewRequest(&pidgrv1.GetDataExistenceConfirmationRequest{
 			UserId: input.UserID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_my_privacy_requests",
+		Description: "List the authenticated user's own privacy requests (exports, rectifications). No admin permission required.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListMyPrivacyRequestsInput) (*mcp.CallToolResult, any, error) {
+		status := pidgrv1.PrivacyRequestStatus_PRIVACY_REQUEST_STATUS_UNSPECIFIED
+		if v, ok := pidgrv1.PrivacyRequestStatus_value[input.Status]; ok {
+			status = pidgrv1.PrivacyRequestStatus(v)
+		} else if v, ok := pidgrv1.PrivacyRequestStatus_value["PRIVACY_REQUEST_STATUS_"+input.Status]; ok {
+			status = pidgrv1.PrivacyRequestStatus(v)
+		}
+		resp, err := c.Privacy.ListMyPrivacyRequests(ctx, connect.NewRequest(&pidgrv1.ListMyPrivacyRequestsRequest{
+			PageSize:    clampPageSize(input.PageSize),
+			PageToken:   input.PageToken,
+			RequestType: input.RequestType,
+			Status:      status,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)

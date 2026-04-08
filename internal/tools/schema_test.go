@@ -247,3 +247,51 @@ func TestUpdateUserRegionRegistered(t *testing.T) {
 		t.Error("update_user_region missing data_governance_region property")
 	}
 }
+
+func TestListUserOrganizationsRegistered(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "list_user_organizations")
+	if tool == nil {
+		t.Fatal("list_user_organizations not registered")
+	}
+	if tool.Description == "" {
+		t.Error("list_user_organizations has empty description")
+	}
+}
+
+func TestListMyPrivacyRequestsRegistered(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "list_my_privacy_requests")
+	if tool == nil {
+		t.Fatal("list_my_privacy_requests not registered")
+	}
+	if !schemaHasProperty(t, tool, "page_size") {
+		t.Error("list_my_privacy_requests missing page_size property")
+	}
+	if !schemaHasProperty(t, tool, "request_type") {
+		t.Error("list_my_privacy_requests missing request_type property")
+	}
+	if !schemaHasProperty(t, tool, "status") {
+		t.Error("list_my_privacy_requests missing status property")
+	}
+}
+
+func TestUpdateTemplateTranslationRegistered(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "update_template_translation")
+	if tool == nil {
+		t.Fatal("update_template_translation not registered")
+	}
+	if !schemaHasProperty(t, tool, "translation_id") {
+		t.Error("update_template_translation missing translation_id property")
+	}
+	if !schemaHasProperty(t, tool, "title") {
+		t.Error("update_template_translation missing title property")
+	}
+	if !schemaHasProperty(t, tool, "body") {
+		t.Error("update_template_translation missing body property")
+	}
+	if !schemaHasProperty(t, tool, "status") {
+		t.Error("update_template_translation missing status property")
+	}
+}

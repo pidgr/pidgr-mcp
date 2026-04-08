@@ -30,6 +30,13 @@ type ListTemplateTranslationsInput struct {
 	Version    int32  `json:"version,omitempty" jsonschema:"Template version (0 = latest)"`
 }
 
+type UpdateTemplateTranslationInput struct {
+	TranslationID string `json:"translation_id" jsonschema:"Translation UUID to update"`
+	Title         string `json:"title,omitempty" jsonschema:"Updated translated title (empty leaves unchanged)"`
+	Body          string `json:"body,omitempty" jsonschema:"Updated translated body with {{variable}} placeholders preserved (empty leaves unchanged)"`
+	Status        string `json:"status,omitempty" jsonschema:"Updated status: DRAFT, AI_TRANSLATED, IN_REVIEW, or APPROVED"`
+}
+
 type ApproveTemplateTranslationInput struct {
 	TranslationID string `json:"translation_id" jsonschema:"Translation UUID to approve"`
 }
@@ -71,6 +78,30 @@ func registerTemplateTranslationTools(s *mcp.Server, c *transport.Clients) {
 		resp, err := c.Templates.ListTemplateTranslations(ctx, connect.NewRequest(&pidgrv1.ListTemplateTranslationsRequest{
 			TemplateId: input.TemplateID,
 			Version:    input.Version,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "update_template_translation",
+		Description: "Update a template translation's title, body, or status. Use list_template_translations first to find translation UUIDs.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateTemplateTranslationInput) (*mcp.CallToolResult, any, error) {
+		status := pidgrv1.TranslationStatus_TRANSLATION_STATUS_UNSPECIFIED
+		if s, ok := pidgrv1.TranslationStatus_value[input.Status]; ok {
+			status = pidgrv1.TranslationStatus(s)
+		} else if s, ok := pidgrv1.TranslationStatus_value["TRANSLATION_STATUS_"+input.Status]; ok {
+			status = pidgrv1.TranslationStatus(s)
+		}
+		resp, err := c.Templates.UpdateTemplateTranslation(ctx, connect.NewRequest(&pidgrv1.UpdateTemplateTranslationRequest{
+			TranslationId: input.TranslationID,
+			Title:         input.Title,
+			Body:          input.Body,
+			Status:        status,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
