@@ -43,7 +43,7 @@ func TestRegisterAll(t *testing.T) {
 		t.Fatalf("ListTools error: %v", err)
 	}
 
-	want := 82
+	want := 86
 	if got := len(result.Tools); got != want {
 		t.Errorf("RegisterAll registered %d tools, want %d", got, want)
 		for _, tool := range result.Tools {
@@ -92,12 +92,12 @@ func TestToolNames(t *testing.T) {
 		// Team (8)
 		"create_team", "get_team", "list_teams", "update_team", "delete_team",
 		"add_team_members", "remove_team_members", "list_team_members",
-		// Member (11)
+		// Member (12)
 		"invite_user", "get_user", "list_users", "update_user_role", "deactivate_user", "reactivate_user", "revoke_invite", "update_user_profile",
-		"bulk_invite_users", "get_user_settings", "update_user_settings",
-		// Organization (6)
+		"bulk_invite_users", "get_user_settings", "update_user_settings", "update_user_region",
+		// Organization (7)
 		"create_organization", "get_organization", "update_organization", "update_sso_attribute_mappings",
-		"rotate_analytics_salt", "update_analytics_epsilon",
+		"rotate_analytics_salt", "update_analytics_epsilon", "list_user_organizations",
 		// Role (4)
 		"list_roles", "create_role", "update_role", "delete_role",
 		// ApiKey (3)
@@ -106,10 +106,10 @@ func TestToolNames(t *testing.T) {
 		"query_heatmap_data", "list_screenshots",
 		// Replay (2)
 		"list_session_recordings", "get_session_snapshots",
-		// Privacy (8)
+		// Privacy (9)
 		"export_user_data", "delete_user_data", "cancel_deletion", "immediate_delete",
 		"list_privacy_requests", "rectify_user_data", "restrict_processing",
-		"get_data_existence_confirmation",
+		"get_data_existence_confirmation", "list_my_privacy_requests",
 		// Audit (3)
 		"list_audit_events", "export_audit_trail", "list_audit_exports",
 		// SSO (3)
@@ -120,8 +120,8 @@ func TestToolNames(t *testing.T) {
 		"list_devices", "list_member_devices",
 		// Insights (3)
 		"get_group_archetypes", "predict_campaign_ack", "get_campaign_advisory",
-		// Template Translations (3)
-		"create_template_translation", "list_template_translations", "approve_template_translation",
+		// Template Translations (4)
+		"create_template_translation", "list_template_translations", "update_template_translation", "approve_template_translation",
 		// Sandbox Organization (1)
 		"create_sandbox_organization",
 	}

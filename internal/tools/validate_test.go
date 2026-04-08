@@ -59,3 +59,30 @@ func TestValidateBatchSize(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateDataGovernanceRegion(t *testing.T) {
+	tests := []struct {
+		name    string
+		region  string
+		wantErr bool
+	}{
+		{"empty is valid", "", false},
+		{"EU", "EU", false},
+		{"LATAM", "LATAM", false},
+		{"BR", "BR", false},
+		{"APAC", "APAC", false},
+		{"US", "US", false},
+		{"lowercase rejected", "eu", true},
+		{"unknown region", "MARS", true},
+		{"mixed case rejected", "Eu", true},
+		{"whitespace rejected", " EU", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateDataGovernanceRegion(tt.region)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateDataGovernanceRegion(%q) error = %v, wantErr %v", tt.region, err, tt.wantErr)
+			}
+		})
+	}
+}
