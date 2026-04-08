@@ -43,7 +43,7 @@ func TestRegisterAll(t *testing.T) {
 		t.Fatalf("ListTools error: %v", err)
 	}
 
-	want := 82
+	want := 83
 	if got := len(result.Tools); got != want {
 		t.Errorf("RegisterAll registered %d tools, want %d", got, want)
 		for _, tool := range result.Tools {
@@ -92,9 +92,9 @@ func TestToolNames(t *testing.T) {
 		// Team (8)
 		"create_team", "get_team", "list_teams", "update_team", "delete_team",
 		"add_team_members", "remove_team_members", "list_team_members",
-		// Member (11)
+		// Member (12)
 		"invite_user", "get_user", "list_users", "update_user_role", "deactivate_user", "reactivate_user", "revoke_invite", "update_user_profile",
-		"bulk_invite_users", "get_user_settings", "update_user_settings",
+		"bulk_invite_users", "get_user_settings", "update_user_settings", "update_user_region",
 		// Organization (6)
 		"create_organization", "get_organization", "update_organization", "update_sso_attribute_mappings",
 		"rotate_analytics_salt", "update_analytics_epsilon",

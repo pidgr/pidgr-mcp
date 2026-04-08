@@ -211,3 +211,39 @@ func TestListMemberDevicesRequiresUserID(t *testing.T) {
 		t.Error("list_member_devices missing user_id property")
 	}
 }
+
+func TestInviteUserHasDataGovernanceRegion(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "invite_user")
+	if tool == nil {
+		t.Fatal("invite_user not found")
+	}
+	if !schemaHasProperty(t, tool, "data_governance_region") {
+		t.Error("invite_user missing data_governance_region property")
+	}
+}
+
+func TestCreateInviteLinkHasDataGovernanceRegion(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "create_invite_link")
+	if tool == nil {
+		t.Fatal("create_invite_link not found")
+	}
+	if !schemaHasProperty(t, tool, "data_governance_region") {
+		t.Error("create_invite_link missing data_governance_region property")
+	}
+}
+
+func TestUpdateUserRegionRegistered(t *testing.T) {
+	tools := listTools(t)
+	tool := toolByName(tools, "update_user_region")
+	if tool == nil {
+		t.Fatal("update_user_region not registered")
+	}
+	if !schemaHasProperty(t, tool, "user_id") {
+		t.Error("update_user_region missing user_id property")
+	}
+	if !schemaHasProperty(t, tool, "data_governance_region") {
+		t.Error("update_user_region missing data_governance_region property")
+	}
+}
