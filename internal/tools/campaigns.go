@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -22,7 +23,7 @@ type CreateCampaignInput struct {
 	UserIDs         []string                  `json:"user_ids,omitempty" jsonschema:"Audience user IDs (max 100000)"`
 	SenderName      string                    `json:"sender_name" jsonschema:"Display name shown to recipients (max 200 chars)"`
 	Title           string                    `json:"title,omitempty" jsonschema:"Optional user-facing title override (max 200 chars)"`
-	Workflow        *pidgrv1.WorkflowDefinition `json:"workflow,omitempty" jsonschema:"Workflow DAG definition"`
+	Workflow        json.RawMessage            `json:"workflow,omitempty" jsonschema:"Workflow DAG definition"`
 	Audience        []*AudienceMemberInput    `json:"audience,omitempty" jsonschema:"Rich audience with per-user template variables"`
 }
 
@@ -38,7 +39,7 @@ type UpdateCampaignInput struct {
 	Title           string                      `json:"title,omitempty" jsonschema:"Updated title override"`
 	TemplateID      string                      `json:"template_id,omitempty" jsonschema:"Updated template UUID"`
 	TemplateVersion int32                       `json:"template_version,omitempty" jsonschema:"Updated template version"`
-	Workflow        *pidgrv1.WorkflowDefinition `json:"workflow,omitempty" jsonschema:"Updated workflow DAG"`
+	Workflow        json.RawMessage             `json:"workflow,omitempty" jsonschema:"Updated workflow DAG"`
 }
 
 type StartCampaignInput struct {
@@ -76,6 +77,11 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
 		}
+		wf, err := workflowFromJSON(input.Workflow)
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
 		var audience []*pidgrv1.AudienceMember
 		for _, a := range input.Audience {
 			audience = append(audience, &pidgrv1.AudienceMember{
@@ -88,7 +94,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 			TemplateId:      input.TemplateID,
 			TemplateVersion: input.TemplateVersion,
 			UserIds:         input.UserIDs,
-			Workflow:        input.Workflow,
+			Workflow:        wf,
 			SenderName:      input.SenderName,
 			Title:           input.Title,
 			Audience:        audience,
@@ -105,6 +111,11 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 		Name:        "update_campaign",
 		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateCampaignInput) (*mcp.CallToolResult, any, error) {
+		wf, err := workflowFromJSON(input.Workflow)
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
 		resp, err := c.Campaigns.UpdateCampaign(ctx, connect.NewRequest(&pidgrv1.UpdateCampaignRequest{
 			CampaignId:      input.CampaignID,
 			Name:            input.Name,
@@ -112,7 +123,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 			Title:           input.Title,
 			TemplateId:      input.TemplateID,
 			TemplateVersion: input.TemplateVersion,
-			Workflow:        input.Workflow,
+			Workflow:        wf,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
