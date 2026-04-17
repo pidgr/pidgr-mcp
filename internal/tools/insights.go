@@ -32,6 +32,13 @@ type GetCampaignAdvisoryInput struct {
 	WorkflowStepCount int32  `json:"workflow_step_count,omitempty" jsonschema:"Number of workflow steps"`
 }
 
+type GetInsightNarrativeInput struct {
+	GroupID    string `json:"group_id" jsonschema:"Group UUID to generate a narrative for"`
+	PromptName string `json:"prompt_name" jsonschema:"Prompt template name (e.g., 'campaign-advisory', 'archetype-explanation')"`
+}
+
+type TriggerMLPipelineInput struct{}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerInsightsTools(s *mcp.Server, c *transport.Clients) {
@@ -77,6 +84,35 @@ func registerInsightsTools(s *mcp.Server, c *transport.Clients) {
 			TemplateVersion:   input.TemplateVersion,
 			WorkflowStepCount: input.WorkflowStepCount,
 		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_insight_narrative",
+		Description: "Generate an AI-powered narrative summary of a group's insights. Combines archetype, prediction, and campaign data into human-readable analysis using the specified prompt template.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetInsightNarrativeInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Insights.GetInsightNarrative(ctx, connect.NewRequest(&pidgrv1.GetInsightNarrativeRequest{
+			GroupId:    input.GroupID,
+			PromptName: input.PromptName,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "trigger_ml_pipeline",
+		Description: "Manually trigger the ML training pipeline for the organization. Rate-limited by the org's monthly quota (default 3/month, auto-resets). Returns remaining retrains this month and the last training timestamp.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, _ TriggerMLPipelineInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Insights.TriggerMLPipeline(ctx, connect.NewRequest(&pidgrv1.TriggerMLPipelineRequest{}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
