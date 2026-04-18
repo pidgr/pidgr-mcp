@@ -21,11 +21,12 @@ type ListUserOrganizationsInput struct{}
 
 type CreateOrganizationInput struct {
 	Name                 string `json:"name" jsonschema:"Organization name (max 200 chars)"`
-	AdminEmail           string `json:"admin_email,omitempty" jsonschema:"Email for the initial admin user (required for API key auth)"`
 	Industry             string `json:"industry,omitempty" jsonschema:"Industry: TECHNOLOGY/FINANCE/HEALTHCARE/EDUCATION/RETAIL/MANUFACTURING/MEDIA/OTHER"`
 	CompanySize          string `json:"company_size,omitempty" jsonschema:"Employee count: 1_200/200_500/500_1000/1000_5000/5000_PLUS"`
 	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance framework: EU, LATAM, APAC, US (default: US)"`
 }
+
+type ListUserSandboxesInput struct{}
 
 type CreateSandboxOrganizationInput struct {
 	Name                 string `json:"name" jsonschema:"Sandbox organization name"`
@@ -64,7 +65,7 @@ type UpdateSsoAttributeMappingsInput struct {
 func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_organization",
-		Description: "Create a new organization with an initial admin user.",
+		Description: "Create a new organization. Requires JWT auth (HTTP mode with user JWT) — the caller becomes the initial admin. Stdio + static API key callers are rejected; use invite links to add further admins after creation.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateOrganizationInput) (*mcp.CallToolResult, any, error) {
 		industry := pidgrv1.Industry_INDUSTRY_UNSPECIFIED
 		if v, ok := pidgrv1.Industry_value[input.Industry]; ok {
@@ -79,10 +80,10 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 			companySize = pidgrv1.CompanySize(v)
 		}
 		resp, err := c.Organizations.CreateOrganization(ctx, connect.NewRequest(&pidgrv1.CreateOrganizationRequest{
-			Name:        input.Name,
-			AdminEmail:  input.AdminEmail,
-			Industry:    industry,
-			CompanySize: companySize,
+			Name:                 input.Name,
+			Industry:             industry,
+			CompanySize:          companySize,
+			DataGovernanceRegion: input.DataGovernanceRegion,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -192,6 +193,19 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 		Description: "List all organizations the authenticated user belongs to. Excludes expired sandbox orgs. No org context required.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListUserOrganizationsInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Organizations.ListUserOrganizations(ctx, connect.NewRequest(&pidgrv1.ListUserOrganizationsRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_user_sandboxes",
+		Description: "List the authenticated user's sandbox organizations (org_type=SANDBOX), ordered by expires_at ascending (soonest-expiring first). Excludes already-expired sandboxes. User-scoped; no org context required.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListUserSandboxesInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.ListUserSandboxes(ctx, connect.NewRequest(&pidgrv1.ListUserSandboxesRequest{}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
