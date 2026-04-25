@@ -101,8 +101,7 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 		return server
 	}, nil)
 
-	mux := http.NewServeMux()
-	mux.Handle("/", authMiddleware(handler))
+	mux := newHTTPMux(authMiddleware, handler)
 
 	httpServer := &http.Server{
 		Addr:           cfg.Addr,
@@ -127,6 +126,31 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 		return err
 	}
 	return nil
+}
+
+// newHTTPMux builds the HTTP mux used by the server. It registers two routes:
+//
+//   - GET /healthz returns 200 with a JSON body. It is unauthenticated so that
+//     load-balancer and container orchestrator health checks can probe the
+//     server without credentials.
+//   - / is the catch-all for the MCP transport and is wrapped in the bearer
+//     token middleware so every other path requires a valid API key.
+//
+// http.ServeMux matches the more specific pattern first, so /healthz takes
+// precedence over the / catch-all.
+//
+// This constructor exists so tests exercise the real routing instead of a
+// hand-rolled duplicate — registering /healthz here instead of inline in
+// runHTTP prevents the route from being silently dropped again.
+func newHTTPMux(authMiddleware func(http.Handler) http.Handler, mcpHandler http.Handler) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+	mux.Handle("/", authMiddleware(mcpHandler))
+	return mux
 }
 
 // securityHeaders adds standard security response headers.
