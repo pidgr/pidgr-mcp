@@ -30,26 +30,53 @@ type Clients struct {
 	InviteLinks   pidgrv1connect.InviteLinkServiceClient
 	Devices       pidgrv1connect.DeviceServiceClient
 	Insights      pidgrv1connect.InsightsServiceClient
+	// Integrations is the Connect-Go client for pidgr.v1.IntegrationsService —
+	// the Wave 1 surface hosted by the sibling pidgr-integrations data plane
+	// (reachability registry, region policy, cost-cap, dispatch worker). The
+	// base URL is configured via PIDGR_INTEGRATIONS_URL with a fallback to
+	// PIDGR_API_URL when unset (Wave 1 ships pidgr-integrations co-hosted on
+	// the pidgr-api ALB; the fallback covers that and the future dedicated
+	// hostname is wired through the env var when it's settled).
+	Integrations pidgrv1connect.IntegrationsServiceClient
 }
 
 // NewStaticTokenClients creates clients that inject a static API key on every request.
 // Used for stdio mode where the token comes from an environment variable.
+//
+// The IntegrationsService client is co-hosted at baseURL — use
+// NewStaticTokenClientsWithIntegrationsURL when a separate base URL is configured.
 func NewStaticTokenClients(baseURL, apiKey string) *Clients {
+	return NewStaticTokenClientsWithIntegrationsURL(baseURL, baseURL, apiKey)
+}
+
+// NewStaticTokenClientsWithIntegrationsURL is the Wave 1 variant that lets the
+// caller route IntegrationsService RPCs to a distinct base URL (e.g.
+// `integrations.pidgr.com`). All other service clients use baseURL.
+func NewStaticTokenClientsWithIntegrationsURL(baseURL, integrationsURL, apiKey string) *Clients {
 	interceptor := staticTokenInterceptor(apiKey)
 	opts := connect.WithInterceptors(interceptor)
-	return newClients(baseURL, http.DefaultClient, opts)
+	return newClients(baseURL, integrationsURL, http.DefaultClient, opts)
 }
 
 // NewDynamicTokenClients creates clients that extract the API key from the MCP
 // auth context on each request. Used for HTTP mode where the token is verified
 // by the RequireBearerToken middleware.
+//
+// The IntegrationsService client is co-hosted at baseURL — use
+// NewDynamicTokenClientsWithIntegrationsURL when a separate base URL is configured.
 func NewDynamicTokenClients(baseURL string) *Clients {
-	interceptor := dynamicTokenInterceptor()
-	opts := connect.WithInterceptors(interceptor)
-	return newClients(baseURL, http.DefaultClient, opts)
+	return NewDynamicTokenClientsWithIntegrationsURL(baseURL, baseURL)
 }
 
-func newClients(baseURL string, httpClient connect.HTTPClient, opts connect.ClientOption) *Clients {
+// NewDynamicTokenClientsWithIntegrationsURL is the Wave 1 variant that lets the
+// caller route IntegrationsService RPCs to a distinct base URL.
+func NewDynamicTokenClientsWithIntegrationsURL(baseURL, integrationsURL string) *Clients {
+	interceptor := dynamicTokenInterceptor()
+	opts := connect.WithInterceptors(interceptor)
+	return newClients(baseURL, integrationsURL, http.DefaultClient, opts)
+}
+
+func newClients(baseURL, integrationsURL string, httpClient connect.HTTPClient, opts connect.ClientOption) *Clients {
 	grpc := connect.WithGRPC()
 	return &Clients{
 		Campaigns:     pidgrv1connect.NewCampaignServiceClient(httpClient, baseURL, grpc, opts),
@@ -68,6 +95,7 @@ func newClients(baseURL string, httpClient connect.HTTPClient, opts connect.Clie
 		InviteLinks:   pidgrv1connect.NewInviteLinkServiceClient(httpClient, baseURL, grpc, opts),
 		Devices:       pidgrv1connect.NewDeviceServiceClient(httpClient, baseURL, grpc, opts),
 		Insights:      pidgrv1connect.NewInsightsServiceClient(httpClient, baseURL, grpc, opts),
+		Integrations:  pidgrv1connect.NewIntegrationsServiceClient(httpClient, integrationsURL, grpc, opts),
 	}
 }
 

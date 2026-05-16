@@ -68,7 +68,7 @@ func run() error {
 	// Create clients and register tools based on transport mode.
 	switch cfg.Transport {
 	case "stdio":
-		clients := transport.NewStaticTokenClients(cfg.ApiURL, cfg.apiKey)
+		clients := transport.NewStaticTokenClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, cfg.apiKey)
 		tools.RegisterAll(server, clients)
 		return runStdio(server)
 
@@ -76,7 +76,10 @@ func run() error {
 		if !strings.HasPrefix(cfg.ApiURL, "https://") {
 			slog.Warn("PIDGR_API_URL is not HTTPS — traffic to the backend is unencrypted", "url", cfg.ApiURL)
 		}
-		clients := transport.NewDynamicTokenClients(cfg.ApiURL)
+		if !strings.HasPrefix(cfg.IntegrationsURL, "https://") {
+			slog.Warn("PIDGR_INTEGRATIONS_URL is not HTTPS — IntegrationsService traffic is unencrypted", "url", cfg.IntegrationsURL)
+		}
+		clients := transport.NewDynamicTokenClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL)
 		tools.RegisterAll(server, clients)
 		return runHTTP(server, cfg)
 
@@ -166,20 +169,27 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // config holds parsed environment configuration.
 type config struct {
-	Transport    string
-	ApiURL       string
-	apiKey       string
-	Addr         string
-	OTELEndpoint string
+	Transport       string
+	ApiURL          string
+	IntegrationsURL string
+	apiKey          string
+	Addr            string
+	OTELEndpoint    string
 }
 
 func parseConfig() (*config, error) {
+	apiURL := getEnv("PIDGR_API_URL", "https://api.pidgr.com")
 	cfg := &config{
-		Transport:    getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
-		ApiURL:       getEnv("PIDGR_API_URL", "https://api.pidgr.com"),
-		apiKey:       os.Getenv("PIDGR_API_KEY"),
-		Addr:         getEnv("PIDGR_MCP_ADDR", ":8080"),
-		OTELEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Transport: getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
+		ApiURL:    apiURL,
+		// PIDGR_INTEGRATIONS_URL points at the pidgr-integrations IntegrationsService
+		// endpoint. Falls back to PIDGR_API_URL when unset — Wave 1 ships pidgr-integrations
+		// co-hosted on the pidgr-api ALB, and the fallback covers the future dedicated
+		// `integrations.pidgr.com` hostname by simply setting the env var.
+		IntegrationsURL: getEnv("PIDGR_INTEGRATIONS_URL", apiURL),
+		apiKey:          os.Getenv("PIDGR_API_KEY"),
+		Addr:            getEnv("PIDGR_MCP_ADDR", ":8080"),
+		OTELEndpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 
 	switch cfg.Transport {

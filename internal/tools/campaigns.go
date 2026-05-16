@@ -66,9 +66,15 @@ type ListDeliveriesInput struct {
 	PageToken    string `json:"page_token,omitempty" jsonschema:"Pagination token from previous response"`
 }
 
+type GetCampaignArchetypeBreakdownInput struct {
+	CampaignID string `json:"campaign_id" jsonschema:"Campaign UUID to compute the archetype-share breakdown for"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
+	registerCampaignArchetypeBreakdownTool(s, c)
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_campaign",
 		Description: "Create a new campaign with a template, audience, and workflow. Use list_templates to find template UUIDs, and list_users or list_team_members/list_group_members to resolve audience user UUIDs.",
@@ -215,6 +221,37 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 				PageSize:  clampPageSize(input.PageSize),
 				PageToken: input.PageToken,
 			},
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+}
+
+// registerCampaignArchetypeBreakdownTool exposes
+// pidgr.v1.CampaignService.GetCampaignArchetypeBreakdown. The proto response
+// carries the Wave 1 email-engagement fields added by
+// `add-email-open-rate-archetype-enrichment` (`email_delivered_count`,
+// `email_open_rate_real`, `email_open_rate_raw` per ArchetypeShareShift); they
+// pass through naturally via protojson.Marshal on the generated proto type.
+//
+// Factored out of registerCampaignTools so the handler can be exercised in
+// isolation in integrations_test.go without spinning up the full campaign tool
+// surface.
+func registerCampaignArchetypeBreakdownTool(s *mcp.Server, c *transport.Clients) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_campaign_archetype_breakdown",
+		Description: "Get the per-archetype tendency-shift breakdown for a campaign. " +
+			"Returns shifts, before_snapshot_at, after_snapshot_at, insufficient_history. " +
+			"Each shift includes the Wave 1 email-engagement fields when populated: " +
+			"`email_delivered_count`, `email_open_rate_real`, `email_open_rate_raw`. " +
+			"Returns `shifts: []` with `insufficient_history: true` when the group has fewer than two clustering snapshots — NOT a NOT_FOUND.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input GetCampaignArchetypeBreakdownInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Campaigns.GetCampaignArchetypeBreakdown(ctx, connect.NewRequest(&pidgrv1.GetCampaignArchetypeBreakdownRequest{
+			CampaignId: input.CampaignID,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
