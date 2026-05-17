@@ -135,6 +135,9 @@ func TestNewStaticTokenClients(t *testing.T) {
 	if clients.Replays == nil {
 		t.Error("expected non-nil Replays client")
 	}
+	if clients.Integrations == nil {
+		t.Error("expected non-nil Integrations client")
+	}
 }
 
 func TestNewDynamicTokenClients(t *testing.T) {
@@ -150,5 +153,37 @@ func TestNewDynamicTokenClients(t *testing.T) {
 	}
 	if clients.Campaigns == nil {
 		t.Error("expected non-nil Campaigns client")
+	}
+	if clients.Integrations == nil {
+		t.Error("expected non-nil Integrations client")
+	}
+}
+
+// TestNewClientsWithSeparateIntegrationsURL exercises the
+// PIDGR_INTEGRATIONS_URL plumbing — when both Static and Dynamic constructors
+// accept a distinct base URL for IntegrationsService, they route to it.
+func TestNewClientsWithSeparateIntegrationsURL(t *testing.T) {
+	apiTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("from", "api")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer apiTS.Close()
+	intTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("from", "integrations")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer intTS.Close()
+
+	clients := NewStaticTokenClientsWithIntegrationsURL(apiTS.URL, intTS.URL, "key")
+	if clients == nil || clients.Integrations == nil {
+		t.Fatal("expected non-nil clients + Integrations client")
+	}
+	if clients.Campaigns == nil {
+		t.Fatal("expected non-nil Campaigns client")
+	}
+
+	dyn := NewDynamicTokenClientsWithIntegrationsURL(apiTS.URL, intTS.URL)
+	if dyn == nil || dyn.Integrations == nil {
+		t.Fatal("expected non-nil dynamic clients + Integrations client")
 	}
 }
