@@ -121,7 +121,7 @@ func TestGetCampaignArchetypeBreakdownSchema(t *testing.T) {
 	if !schemaHasProperty(t, tool, "campaign_id") {
 		t.Error("get_campaign_archetype_breakdown missing campaign_id property")
 	}
-	// Description should call out the Wave 1 email-open-rate fields so agents
+	// Description should call out the email-open-rate fields so agents
 	// know they can rely on this tool to surface those metrics.
 	if !strings.Contains(strings.ToLower(tool.Description), "email") {
 		t.Errorf("get_campaign_archetype_breakdown description should mention email-engagement fields, got: %s", tool.Description)
@@ -571,7 +571,7 @@ func TestGetCampaignArchetypeBreakdownHappyPath(t *testing.T) {
 		t.Errorf("expected campaign_id forwarded, got %q", campaign.getCampaignArchetypeBreakdownReq.GetCampaignId())
 	}
 	body := resultText(result)
-	// Wave 1 email-engagement fields must surface verbatim in proto-JSON.
+	// Email-engagement fields must surface verbatim in proto-JSON.
 	if !strings.Contains(body, "emailDeliveredCount") && !strings.Contains(body, "email_delivered_count") {
 		t.Errorf("expected email_delivered_count in response, got %s", body)
 	}

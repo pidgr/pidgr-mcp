@@ -233,8 +233,7 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 // registerCampaignArchetypeBreakdownTool exposes
 // pidgr.v1.CampaignService.GetCampaignArchetypeBreakdown. The proto response
-// carries the Wave 1 email-engagement fields added by
-// `add-email-open-rate-archetype-enrichment` (`email_delivered_count`,
+// carries the email-engagement fields (`email_delivered_count`,
 // `email_open_rate_real`, `email_open_rate_raw` per ArchetypeShareShift); they
 // pass through naturally via protojson.Marshal on the generated proto type.
 //
@@ -246,7 +245,7 @@ func registerCampaignArchetypeBreakdownTool(s *mcp.Server, c *transport.Clients)
 		Name: "get_campaign_archetype_breakdown",
 		Description: "Get the per-archetype tendency-shift breakdown for a campaign. " +
 			"Returns shifts, before_snapshot_at, after_snapshot_at, insufficient_history. " +
-			"Each shift includes the Wave 1 email-engagement fields when populated: " +
+			"Each shift includes the email-engagement fields when populated: " +
 			"`email_delivered_count`, `email_open_rate_real`, `email_open_rate_raw`. " +
 			"Returns `shifts: []` with `insufficient_history: true` when the group has fewer than two clustering snapshots — NOT a NOT_FOUND.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input GetCampaignArchetypeBreakdownInput) (*mcp.CallToolResult, any, error) {

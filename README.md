@@ -8,7 +8,7 @@ Pidgr is an internal communication platform that replaces passive email and chat
 
 ## Capabilities
 
-**Campaigns** — Create, update, start, cancel, and list campaigns. Track per-user delivery status (sent, delivered, acknowledged, missed). Inspect the per-archetype tendency-shift breakdown after a campaign completes (including Wave 1 email-engagement fields: `email_delivered_count`, `email_open_rate_real`, `email_open_rate_raw`).
+**Campaigns** — Create, update, start, cancel, and list campaigns. Track per-user delivery status (sent, delivered, acknowledged, missed). Inspect the per-archetype tendency-shift breakdown after a campaign completes (including email-engagement fields: `email_delivered_count`, `email_open_rate_real`, `email_open_rate_raw`).
 
 **Templates** — Create versioned message templates with variable substitution. Supports Markdown, Rich, and HTML content types.
 
@@ -24,7 +24,7 @@ Pidgr is an internal communication platform that replaces passive email and chat
 
 **Analytics** — Query aggregated touch heatmap data with screen, campaign, and time range filters. List session recordings and fetch snapshot data for playback.
 
-**Integrations (Wave 1)** — Manage per-channel recipient reachability (`list_reachabilities_for_user`, `upsert_reachability`, `remove_reachability`) and the per-`(org, channel)` cost-cap policy (`get_cost_cap_policy`, `set_cost_cap_policy`). Reachability identifiers (email addresses, phone numbers, Slack user ids, etc.) are sensitive — they are column-level KMS-encrypted server-side, never logged, and never returned over the wire. Calls route to the `pidgr-integrations` data plane (see `PIDGR_INTEGRATIONS_URL` below).
+**Integrations** — Manage per-channel recipient reachability (`list_reachabilities_for_user`, `upsert_reachability`, `remove_reachability`) and the per-`(org, channel)` cost-cap policy (`get_cost_cap_policy`, `set_cost_cap_policy`). Reachability identifiers (email addresses, phone numbers, Slack user ids, etc.) are sensitive — they are column-level KMS-encrypted server-side, never logged, and never returned over the wire. Calls route to the IntegrationsService endpoint (see `PIDGR_INTEGRATIONS_URL` below).
 
 ## Install
 
@@ -74,8 +74,8 @@ docker run -e PIDGR_MCP_TRANSPORT=http -e PIDGR_AUTH_ISSUER=<your-issuer-url> -p
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PIDGR_API_KEY` | stdio only | Scoped API key |
-| `PIDGR_API_URL` | No | API endpoint (pidgr-api gRPC base URL) |
-| `PIDGR_INTEGRATIONS_URL` | No | IntegrationsService endpoint (pidgr-integrations gRPC base URL). Falls back to `PIDGR_API_URL` when unset — Wave 1 ships pidgr-integrations co-hosted on the pidgr-api ALB, set this only when running against a dedicated `integrations.pidgr.com`-style hostname. |
+| `PIDGR_API_URL` | No | API endpoint (gRPC base URL) |
+| `PIDGR_INTEGRATIONS_URL` | No | IntegrationsService endpoint (gRPC base URL). Falls back to `PIDGR_API_URL` when unset — useful when the IntegrationsService is co-hosted at the same gRPC ingress as the main API. |
 | `PIDGR_MCP_TRANSPORT` | No | `stdio` or `http` |
 | `PIDGR_MCP_ADDR` | No | Listen address (http mode) |
 | `PIDGR_AUTH_ISSUER` | http only | OIDC issuer URL |

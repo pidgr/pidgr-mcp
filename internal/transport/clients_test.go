@@ -159,7 +159,7 @@ func TestNewDynamicTokenClients(t *testing.T) {
 	}
 }
 
-// TestNewIntegrationsClientUsesIntegrationsBaseURL exercises the Wave 1
+// TestNewClientsWithSeparateIntegrationsURL exercises the
 // PIDGR_INTEGRATIONS_URL plumbing — when both Static and Dynamic constructors
 // accept a distinct base URL for IntegrationsService, they route to it.
 func TestNewClientsWithSeparateIntegrationsURL(t *testing.T) {

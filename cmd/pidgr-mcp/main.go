@@ -182,10 +182,10 @@ func parseConfig() (*config, error) {
 	cfg := &config{
 		Transport: getEnv("PIDGR_MCP_TRANSPORT", "stdio"),
 		ApiURL:    apiURL,
-		// PIDGR_INTEGRATIONS_URL points at the pidgr-integrations IntegrationsService
-		// endpoint. Falls back to PIDGR_API_URL when unset — Wave 1 ships pidgr-integrations
-		// co-hosted on the pidgr-api ALB, and the fallback covers the future dedicated
-		// `integrations.pidgr.com` hostname by simply setting the env var.
+		// PIDGR_INTEGRATIONS_URL points at the IntegrationsService endpoint.
+		// Falls back to PIDGR_API_URL when unset — useful when the
+		// IntegrationsService is co-hosted at the same gRPC ingress as the
+		// main API.
 		IntegrationsURL: getEnv("PIDGR_INTEGRATIONS_URL", apiURL),
 		apiKey:          os.Getenv("PIDGR_API_KEY"),
 		Addr:            getEnv("PIDGR_MCP_ADDR", ":8080"),

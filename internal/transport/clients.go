@@ -30,13 +30,11 @@ type Clients struct {
 	InviteLinks   pidgrv1connect.InviteLinkServiceClient
 	Devices       pidgrv1connect.DeviceServiceClient
 	Insights      pidgrv1connect.InsightsServiceClient
-	// Integrations is the Connect-Go client for pidgr.v1.IntegrationsService —
-	// the Wave 1 surface hosted by the sibling pidgr-integrations data plane
+	// Integrations is the Connect-Go client for pidgr.v1.IntegrationsService
 	// (reachability registry, region policy, cost-cap, dispatch worker). The
 	// base URL is configured via PIDGR_INTEGRATIONS_URL with a fallback to
-	// PIDGR_API_URL when unset (Wave 1 ships pidgr-integrations co-hosted on
-	// the pidgr-api ALB; the fallback covers that and the future dedicated
-	// hostname is wired through the env var when it's settled).
+	// PIDGR_API_URL when unset — useful when the IntegrationsService is
+	// co-hosted at the same gRPC ingress as the main API.
 	Integrations pidgrv1connect.IntegrationsServiceClient
 }
 
@@ -49,9 +47,9 @@ func NewStaticTokenClients(baseURL, apiKey string) *Clients {
 	return NewStaticTokenClientsWithIntegrationsURL(baseURL, baseURL, apiKey)
 }
 
-// NewStaticTokenClientsWithIntegrationsURL is the Wave 1 variant that lets the
-// caller route IntegrationsService RPCs to a distinct base URL (e.g.
-// `integrations.pidgr.com`). All other service clients use baseURL.
+// NewStaticTokenClientsWithIntegrationsURL is the variant that lets the
+// caller route IntegrationsService RPCs to a distinct base URL. All other
+// service clients use baseURL.
 func NewStaticTokenClientsWithIntegrationsURL(baseURL, integrationsURL, apiKey string) *Clients {
 	interceptor := staticTokenInterceptor(apiKey)
 	opts := connect.WithInterceptors(interceptor)
@@ -68,7 +66,7 @@ func NewDynamicTokenClients(baseURL string) *Clients {
 	return NewDynamicTokenClientsWithIntegrationsURL(baseURL, baseURL)
 }
 
-// NewDynamicTokenClientsWithIntegrationsURL is the Wave 1 variant that lets the
+// NewDynamicTokenClientsWithIntegrationsURL is the variant that lets the
 // caller route IntegrationsService RPCs to a distinct base URL.
 func NewDynamicTokenClientsWithIntegrationsURL(baseURL, integrationsURL string) *Clients {
 	interceptor := dynamicTokenInterceptor()
