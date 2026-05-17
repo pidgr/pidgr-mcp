@@ -46,4 +46,4 @@ PIDGR_MCP_TRANSPORT=http go run ./cmd/pidgr-mcp/
 
 ## OpenSpec
 
-Changes for this repo are tracked in pidgr-admin's OpenSpec: `openspec/changes/mcp-server/`.
+This repo does not carry its own `openspec/` change directory. New behavior is reviewed upstream against the proto and service contracts this server wraps.
