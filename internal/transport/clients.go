@@ -12,7 +12,7 @@ import (
 	pidgrv1connect "github.com/pidgr/pidgr-proto/gen/go/pidgr/v1/pidgrv1connect"
 )
 
-// Clients holds Connect-Go clients for all exposed pidgr-api services.
+// Clients holds the Connect-Go clients for the Pidgr API services this MCP server wraps.
 type Clients struct {
 	Campaigns     pidgrv1connect.CampaignServiceClient
 	Templates     pidgrv1connect.TemplateServiceClient
