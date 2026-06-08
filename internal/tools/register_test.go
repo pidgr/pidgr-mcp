@@ -95,7 +95,7 @@ func TestToolNames(t *testing.T) {
 		// Member (12)
 		"invite_user", "get_user", "list_users", "update_user_role", "deactivate_user", "reactivate_user", "revoke_invite", "update_user_profile",
 		"bulk_invite_users", "get_user_settings", "update_user_settings", "update_user_region",
-		// Organization (7)
+		// Organization (9)
 		"create_organization", "get_organization", "update_organization", "update_sso_attribute_mappings",
 		"rotate_analytics_salt", "update_analytics_epsilon", "list_user_organizations", "list_user_sandboxes", "list_sandbox_fixtures",
 		// Role (4)
