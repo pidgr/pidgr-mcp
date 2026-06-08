@@ -24,14 +24,18 @@ type CreateOrganizationInput struct {
 	Industry             string `json:"industry,omitempty" jsonschema:"Industry: TECHNOLOGY/FINANCE/HEALTHCARE/EDUCATION/RETAIL/MANUFACTURING/MEDIA/OTHER"`
 	CompanySize          string `json:"company_size,omitempty" jsonschema:"Employee count: 1_200/200_500/500_1000/1000_5000/5000_PLUS"`
 	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance framework: EU, LATAM, APAC, US (default: US)"`
+	FixtureID            string `json:"fixture_id,omitempty" jsonschema:"Bootstrap fixture id from list_sandbox_fixtures (e.g. starter/empty/fintech/sales). Empty applies the default fixture."`
 }
 
 type ListUserSandboxesInput struct{}
+
+type ListSandboxFixturesInput struct{}
 
 type CreateSandboxOrganizationInput struct {
 	Name                 string `json:"name" jsonschema:"Sandbox organization name"`
 	ExpiresInDays        int32  `json:"expires_in_days" jsonschema:"TTL in days (max 30, max 14 with SCIM)"`
 	DataGovernanceRegion string `json:"data_governance_region,omitempty" jsonschema:"Data governance: EU, LATAM, APAC, US (default: US)"`
+	FixtureID            string `json:"fixture_id,omitempty" jsonschema:"Bootstrap fixture id from list_sandbox_fixtures (e.g. starter/empty/fintech/sales). Empty applies the default fixture."`
 }
 
 type GetOrganizationInput struct{}
@@ -84,6 +88,7 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 			Industry:             industry,
 			CompanySize:          companySize,
 			DataGovernanceRegion: input.DataGovernanceRegion,
+			FixtureId:            input.FixtureID,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
@@ -215,6 +220,19 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_sandbox_fixtures",
+		Description: "List the bootstrap fixture catalog (e.g. starter/empty/fintech/sales) available for seeding new organizations and sandboxes. Each entry has an id, name, description, and is_default flag. Pass the chosen id as fixture_id to create_organization or create_sandbox_organization. No org context required.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListSandboxFixturesInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.ListSandboxFixtures(ctx, connect.NewRequest(&pidgrv1.ListSandboxFixturesRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_sandbox_organization",
 		Description: "Create a sandbox organization for testing configurations. Auto-deletes after TTL. SCIM provisioning allowed for IdP testing (DB-only, no Cognito users).",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateSandboxOrganizationInput) (*mcp.CallToolResult, any, error) {
@@ -223,6 +241,7 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 			Name:                 input.Name,
 			ExpiresAt:            expiresAt,
 			DataGovernanceRegion: input.DataGovernanceRegion,
+			FixtureId:            input.FixtureID,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
