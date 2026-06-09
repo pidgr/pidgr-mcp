@@ -6,6 +6,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,7 +24,7 @@ type CreateCampaignInput struct {
 	UserIDs         []string                  `json:"user_ids,omitempty" jsonschema:"Audience user IDs (max 100000)"`
 	SenderName      string                    `json:"sender_name" jsonschema:"Display name shown to recipients (max 200 chars)"`
 	Title           string                    `json:"title,omitempty" jsonschema:"Optional user-facing title override (max 200 chars)"`
-	Workflow        json.RawMessage            `json:"workflow,omitempty" jsonschema:"Workflow DAG definition"`
+	Workflow        json.RawMessage            `json:"workflow" jsonschema:"REQUIRED protojson WorkflowDefinition. Use full STEP_TYPE_* enum names and the typed oneof config key (sendNotification/deadlineCheck/...). Example: {\"steps\":[{\"id\":\"send\",\"type\":\"STEP_TYPE_SEND_NOTIFICATION\",\"sendNotification\":{\"type\":\"push\",\"actionType\":\"ACTION_TYPE_ACK\"},\"transitions\":{\"completed\":\"wait\"}},{\"id\":\"wait\",\"type\":\"STEP_TYPE_DEADLINE_CHECK\",\"deadlineCheck\":{\"delay\":\"5m\"},\"transitions\":{\"completed\":\"done\"}},{\"id\":\"done\",\"type\":\"STEP_TYPE_MARK_MISSED\"}]}. Or copy the workflow from an existing campaign via list_campaigns/get_campaign."`
 	Audience        []*AudienceMemberInput    `json:"audience,omitempty" jsonschema:"Rich audience with per-user template variables"`
 }
 
@@ -77,10 +78,14 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_campaign",
-		Description: "Create a new campaign with a template, audience, and workflow. Use list_templates to find template UUIDs, and list_users or list_team_members/list_group_members to resolve audience user UUIDs.",
+		Description: "Create a new campaign with a template, audience, and workflow. The workflow is REQUIRED — the server rejects a campaign with no workflow (INVALID_ARGUMENT) and does not substitute a default. Pass a protojson WorkflowDefinition in the `workflow` field (see its schema for the format/example), or copy one from an existing campaign via list_campaigns/get_campaign. Use list_templates to find template UUIDs, and list_users or list_team_members/list_group_members to resolve audience user UUIDs.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input CreateCampaignInput) (*mcp.CallToolResult, any, error) {
 		if err := validateBatchSize(input.UserIDs, maxBatchSize); err != nil {
 			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		if len(input.Workflow) == 0 {
+			r, _ := convert.ErrorResult(errors.New("workflow is required: pass a protojson WorkflowDefinition (e.g. a STEP_TYPE_SEND_NOTIFICATION → STEP_TYPE_DEADLINE_CHECK → STEP_TYPE_MARK_MISSED DAG), or copy the workflow from an existing campaign via list_campaigns/get_campaign"))
 			return r, nil, nil
 		}
 		wf, err := workflowFromJSON(input.Workflow)
