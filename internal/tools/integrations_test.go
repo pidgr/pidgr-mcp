@@ -12,9 +12,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/pidgr/pidgr-mcp/internal/transport"
 	pidgrv1 "github.com/pidgr/pidgr-proto/gen/go/pidgr/v1"
 	"github.com/pidgr/pidgr-proto/gen/go/pidgr/v1/pidgrv1connect"
-	"github.com/pidgr/pidgr-mcp/internal/transport"
 )
 
 // ─── Schema registration tests ──────────────────────────────────────────────
@@ -194,6 +194,14 @@ func (f *fakeIntegrationsClient) GetRegionPolicy(_ context.Context, _ *connect.R
 
 func (f *fakeIntegrationsClient) SetRegionPolicy(_ context.Context, _ *connect.Request[pidgrv1.SetRegionPolicyRequest]) (*connect.Response[pidgrv1.SetRegionPolicyResponse], error) {
 	return nil, errors.New("not used")
+}
+
+func (f *fakeIntegrationsClient) GetOrgWebhookConfig(_ context.Context, _ *connect.Request[pidgrv1.GetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.GetOrgWebhookConfigResponse], error) {
+	return connect.NewResponse(&pidgrv1.GetOrgWebhookConfigResponse{}), nil
+}
+
+func (f *fakeIntegrationsClient) SetOrgWebhookConfig(_ context.Context, _ *connect.Request[pidgrv1.SetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.SetOrgWebhookConfigResponse], error) {
+	return connect.NewResponse(&pidgrv1.SetOrgWebhookConfigResponse{}), nil
 }
 
 func (f *fakeIntegrationsClient) GetCostCapPolicy(_ context.Context, req *connect.Request[pidgrv1.GetCostCapPolicyRequest]) (*connect.Response[pidgrv1.GetCostCapPolicyResponse], error) {
