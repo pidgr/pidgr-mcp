@@ -4,9 +4,11 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -422,6 +424,42 @@ func TestUpsertReachabilityUnknownChannel(t *testing.T) {
 	// The upstream MUST NOT be called for invalid channel names.
 	if fake.upsertReachabilityReq != nil {
 		t.Error("expected upstream NOT to be called when channel is invalid")
+	}
+}
+
+// TestUpsertReachabilityDoesNotLogPlaintext is the task 4.4 regression guard:
+// pidgr-mcp MUST NOT emit the sensitive identifier_plaintext value into any log
+// sink. We swap the process-default slog logger for a buffer-backed handler at
+// debug level (the most verbose level), drive upsert_reachability with a sentinel
+// identifier, and assert the sentinel never lands in the captured log output.
+func TestUpsertReachabilityDoesNotLogPlaintext(t *testing.T) {
+	const sentinel = "SENSITIVE-SENTINEL-alice@example.com"
+
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	fake := &fakeIntegrationsClient{
+		upsertReachabilityResp: &pidgrv1.UpsertReachabilityResponse{
+			Reachability: &pidgrv1.Reachability{Id: "reach-1", Channel: pidgrv1.ChannelName_CHANNEL_NAME_EMAIL},
+		},
+	}
+	result := callTool(t, fake, nil, "upsert_reachability", map[string]any{
+		"org_id":               "org-1",
+		"user_id":              "user-1",
+		"channel":              "CHANNEL_NAME_EMAIL",
+		"identifier_plaintext": sentinel,
+	})
+	if result.IsError {
+		t.Fatalf("expected success, got %s", resultText(result))
+	}
+	// Sanity: the plaintext IS forwarded to the upstream RPC (it just must not be logged).
+	if fake.upsertReachabilityReq.GetIdentifierPlaintext() != sentinel {
+		t.Fatalf("expected identifier_plaintext forwarded verbatim, got %q", fake.upsertReachabilityReq.GetIdentifierPlaintext())
+	}
+	if bytes.Contains(buf.Bytes(), []byte(sentinel)) {
+		t.Errorf("identifier_plaintext sentinel leaked into log output:\n%s", buf.String())
 	}
 }
 
