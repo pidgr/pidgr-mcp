@@ -160,6 +160,10 @@ func (f *fakeIntegrationsClient) DispatchToChannel(_ context.Context, _ *connect
 	return nil, errors.New("not used")
 }
 
+func (f *fakeIntegrationsClient) CreateChannelConnectLink(_ context.Context, _ *connect.Request[pidgrv1.CreateChannelConnectLinkRequest]) (*connect.Response[pidgrv1.CreateChannelConnectLinkResponse], error) {
+	return nil, errors.New("not used")
+}
+
 func (f *fakeIntegrationsClient) UpsertReachability(_ context.Context, req *connect.Request[pidgrv1.UpsertReachabilityRequest]) (*connect.Response[pidgrv1.UpsertReachabilityResponse], error) {
 	f.upsertReachabilityReq = req.Msg
 	if f.upsertReachabilityErr != nil {
