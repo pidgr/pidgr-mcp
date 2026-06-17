@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	connectrpc.com/connect v1.20.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
-	github.com/pidgr/pidgr-proto/gen/go v0.82.0
+	github.com/pidgr/pidgr-proto/gen/go v0.83.0
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
