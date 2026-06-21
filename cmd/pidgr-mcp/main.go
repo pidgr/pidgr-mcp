@@ -92,16 +92,10 @@ func run() error {
 	}
 }
 
-// newStdioClients selects the stdio authentication path. A configured
-// PIDGR_API_KEY (a `pidgr_k_` key) takes precedence for backward compatibility;
-// otherwise the OAuth authorization_code + PKCE browser flow is used and tokens
-// are resolved lazily on the first RPC.
+// newStdioClients builds the stdio authentication path. stdio is OAuth-only: it
+// always uses the OAuth authorization_code + PKCE browser flow and resolves
+// tokens lazily on the first RPC.
 func newStdioClients(cfg *config) (*transport.Clients, error) {
-	if cfg.apiKey != "" {
-		slog.Info("stdio auth: using static API key (PIDGR_API_KEY)")
-		return transport.NewStaticTokenClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, cfg.apiKey), nil
-	}
-
 	slog.Info("stdio auth: using OAuth (authorization_code + PKCE)", "issuer", cfg.OAuthIssuer)
 	oauthClient, err := oauth.NewClient(oauth.Config{
 		Issuer:   cfg.OAuthIssuer,
@@ -198,7 +192,6 @@ type config struct {
 	Transport       string
 	ApiURL          string
 	IntegrationsURL string
-	apiKey          string
 	Addr            string
 	OTELEndpoint    string
 	OAuthIssuer     string
@@ -222,7 +215,6 @@ func parseConfig() (*config, error) {
 		// IntegrationsService is co-hosted at the same gRPC ingress as the
 		// main API.
 		IntegrationsURL: getEnv("PIDGR_INTEGRATIONS_URL", apiURL),
-		apiKey:          os.Getenv("PIDGR_API_KEY"),
 		Addr:            getEnv("PIDGR_MCP_ADDR", ":8080"),
 		OTELEndpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		OAuthIssuer:     getEnv("PIDGR_OAUTH_ISSUER", defaultOAuthIssuer),
@@ -232,9 +224,7 @@ func parseConfig() (*config, error) {
 
 	switch cfg.Transport {
 	case "stdio":
-		// stdio uses PIDGR_API_KEY when set (backward compat) and otherwise
-		// falls back to the OAuth browser flow — neither requires up-front
-		// validation here.
+		// stdio is OAuth-only; the browser flow needs no up-front validation here.
 	case "http":
 		// HTTP mode validates API keys via the Authorization header.
 	default:
