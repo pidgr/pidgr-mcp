@@ -202,7 +202,7 @@ type config struct {
 const (
 	defaultOAuthIssuer   = "https://auth.pidgr.com"
 	defaultOAuthClientID = "pidgr-mcp"
-	defaultOAuthScope    = "openid offline_access"
+	defaultOAuthScope    = "campaigns:read campaigns:write templates:write channels:dispatch reachability:write members:read"
 )
 
 func parseConfig() (*config, error) {
