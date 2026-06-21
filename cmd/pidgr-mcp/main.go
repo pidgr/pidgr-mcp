@@ -18,6 +18,7 @@ import (
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/pidgr/pidgr-mcp/internal/auth"
+	"github.com/pidgr/pidgr-mcp/internal/oauth"
 	"github.com/pidgr/pidgr-mcp/internal/observability"
 	"github.com/pidgr/pidgr-mcp/internal/tools"
 	"github.com/pidgr/pidgr-mcp/internal/transport"
@@ -68,7 +69,10 @@ func run() error {
 	// Create clients and register tools based on transport mode.
 	switch cfg.Transport {
 	case "stdio":
-		clients := transport.NewStaticTokenClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, cfg.apiKey)
+		clients, err := newStdioClients(cfg)
+		if err != nil {
+			return err
+		}
 		tools.RegisterAll(server, clients)
 		return runStdio(server)
 
@@ -86,6 +90,28 @@ func run() error {
 	default:
 		return fmt.Errorf("invalid transport %q: must be 'stdio' or 'http'", cfg.Transport)
 	}
+}
+
+// newStdioClients selects the stdio authentication path. A configured
+// PIDGR_API_KEY (a `pidgr_k_` key) takes precedence for backward compatibility;
+// otherwise the OAuth authorization_code + PKCE browser flow is used and tokens
+// are resolved lazily on the first RPC.
+func newStdioClients(cfg *config) (*transport.Clients, error) {
+	if cfg.apiKey != "" {
+		slog.Info("stdio auth: using static API key (PIDGR_API_KEY)")
+		return transport.NewStaticTokenClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, cfg.apiKey), nil
+	}
+
+	slog.Info("stdio auth: using OAuth (authorization_code + PKCE)", "issuer", cfg.OAuthIssuer)
+	oauthClient, err := oauth.NewClient(oauth.Config{
+		Issuer:   cfg.OAuthIssuer,
+		ClientID: cfg.OAuthClientID,
+		Scope:    cfg.OAuthScope,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init oauth client: %w", err)
+	}
+	return transport.NewOAuthClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, oauthClient.AccessToken), nil
 }
 
 func runStdio(server *mcp.Server) error {
@@ -175,7 +201,16 @@ type config struct {
 	apiKey          string
 	Addr            string
 	OTELEndpoint    string
+	OAuthIssuer     string
+	OAuthClientID   string
+	OAuthScope      string
 }
+
+const (
+	defaultOAuthIssuer   = "https://auth.pidgr.com"
+	defaultOAuthClientID = "pidgr-mcp"
+	defaultOAuthScope    = "openid offline_access"
+)
 
 func parseConfig() (*config, error) {
 	apiURL := getEnv("PIDGR_API_URL", "https://api.pidgr.com")
@@ -190,13 +225,16 @@ func parseConfig() (*config, error) {
 		apiKey:          os.Getenv("PIDGR_API_KEY"),
 		Addr:            getEnv("PIDGR_MCP_ADDR", ":8080"),
 		OTELEndpoint:    os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		OAuthIssuer:     getEnv("PIDGR_OAUTH_ISSUER", defaultOAuthIssuer),
+		OAuthClientID:   getEnv("PIDGR_OAUTH_CLIENT_ID", defaultOAuthClientID),
+		OAuthScope:      getEnv("PIDGR_OAUTH_SCOPE", defaultOAuthScope),
 	}
 
 	switch cfg.Transport {
 	case "stdio":
-		if cfg.apiKey == "" {
-			return nil, fmt.Errorf("PIDGR_API_KEY is required for stdio mode")
-		}
+		// stdio uses PIDGR_API_KEY when set (backward compat) and otherwise
+		// falls back to the OAuth browser flow — neither requires up-front
+		// validation here.
 	case "http":
 		// HTTP mode validates API keys via the Authorization header.
 	default:
