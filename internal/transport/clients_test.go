@@ -14,24 +14,6 @@ import (
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 )
 
-func TestStaticTokenInterceptor(t *testing.T) {
-	interceptor := staticTokenInterceptor("pidgr_k_test123")
-
-	var capturedHeader string
-	handler := interceptor(func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		capturedHeader = req.Header().Get("Authorization")
-		return nil, nil
-	})
-
-	req := connect.NewRequest(&struct{}{})
-	_, _ = handler(context.Background(), req)
-
-	want := "Bearer pidgr_k_test123"
-	if capturedHeader != want {
-		t.Errorf("got Authorization %q, want %q", capturedHeader, want)
-	}
-}
-
 func TestDynamicTokenInterceptor(t *testing.T) {
 	interceptor := dynamicTokenInterceptor()
 
@@ -94,13 +76,13 @@ func TestDynamicTokenInterceptor(t *testing.T) {
 	})
 }
 
-func TestNewStaticTokenClients(t *testing.T) {
+func TestNewDynamicTokenClients(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
 
-	clients := NewStaticTokenClients(ts.URL, "test-key")
+	clients := NewDynamicTokenClients(ts.URL)
 	if clients == nil {
 		t.Fatal("expected non-nil clients")
 		return
@@ -140,28 +122,9 @@ func TestNewStaticTokenClients(t *testing.T) {
 	}
 }
 
-func TestNewDynamicTokenClients(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ts.Close()
-
-	clients := NewDynamicTokenClients(ts.URL)
-	if clients == nil {
-		t.Fatal("expected non-nil clients")
-		return
-	}
-	if clients.Campaigns == nil {
-		t.Error("expected non-nil Campaigns client")
-	}
-	if clients.Integrations == nil {
-		t.Error("expected non-nil Integrations client")
-	}
-}
-
 // TestNewClientsWithSeparateIntegrationsURL exercises the
-// PIDGR_INTEGRATIONS_URL plumbing — when both Static and Dynamic constructors
-// accept a distinct base URL for IntegrationsService, they route to it.
+// PIDGR_INTEGRATIONS_URL plumbing — when the Dynamic constructor accepts a
+// distinct base URL for IntegrationsService, it routes to it.
 func TestNewClientsWithSeparateIntegrationsURL(t *testing.T) {
 	apiTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("from", "api")
@@ -174,16 +137,11 @@ func TestNewClientsWithSeparateIntegrationsURL(t *testing.T) {
 	}))
 	defer intTS.Close()
 
-	clients := NewStaticTokenClientsWithIntegrationsURL(apiTS.URL, intTS.URL, "key")
-	if clients == nil || clients.Integrations == nil {
-		t.Fatal("expected non-nil clients + Integrations client")
-	}
-	if clients.Campaigns == nil {
-		t.Fatal("expected non-nil Campaigns client")
-	}
-
 	dyn := NewDynamicTokenClientsWithIntegrationsURL(apiTS.URL, intTS.URL)
 	if dyn == nil || dyn.Integrations == nil {
 		t.Fatal("expected non-nil dynamic clients + Integrations client")
+	}
+	if dyn.Campaigns == nil {
+		t.Fatal("expected non-nil Campaigns client")
 	}
 }

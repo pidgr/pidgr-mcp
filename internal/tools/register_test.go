@@ -18,7 +18,7 @@ func TestRegisterAll(t *testing.T) {
 	}, nil)
 
 	// Create clients with a dummy URL (we won't actually make calls).
-	clients := transport.NewStaticTokenClients("http://localhost:50051", "test-key")
+	clients := transport.NewDynamicTokenClients("http://localhost:50051")
 
 	// Register all tools.
 	RegisterAll(server, clients)
@@ -58,7 +58,7 @@ func TestToolNames(t *testing.T) {
 		Version: "test",
 	}, nil)
 
-	clients := transport.NewStaticTokenClients("http://localhost:50051", "test-key")
+	clients := transport.NewDynamicTokenClients("http://localhost:50051")
 	RegisterAll(server, clients)
 
 	client := mcp.NewClient(&mcp.Implementation{

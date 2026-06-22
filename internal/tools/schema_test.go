@@ -15,7 +15,7 @@ import (
 func listTools(t *testing.T) []*mcp.Tool {
 	t.Helper()
 	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "test"}, nil)
-	clients := transport.NewStaticTokenClients("http://localhost:50051", "test-key")
+	clients := transport.NewDynamicTokenClients("http://localhost:50051")
 	RegisterAll(server, clients)
 
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "test"}, nil)
