@@ -669,9 +669,11 @@ func TestGetCampaignArchetypeBreakdownInsufficientHistory(t *testing.T) {
 // This test simply asserts that the integrations field is populated by both
 // transport constructors — full wire behavior is covered by transport/.
 func TestIntegrationsClientPopulatedByTransport(t *testing.T) {
-	staticClients := transport.NewStaticTokenClients("http://localhost:50051", "test-key")
-	if staticClients.Integrations == nil {
-		t.Error("NewStaticTokenClients did not set Integrations client")
+	oauthClients := transport.NewOAuthClients("http://localhost:50051", func(context.Context) (string, error) {
+		return "test-token", nil
+	})
+	if oauthClients.Integrations == nil {
+		t.Error("NewOAuthClients did not set Integrations client")
 	}
 	dynamicClients := transport.NewDynamicTokenClients("http://localhost:50051")
 	if dynamicClients.Integrations == nil {

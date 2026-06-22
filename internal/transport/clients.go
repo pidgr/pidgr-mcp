@@ -38,27 +38,9 @@ type Clients struct {
 	Integrations pidgrv1connect.IntegrationsServiceClient
 }
 
-// NewStaticTokenClients creates clients that inject a static API key on every request.
-// Used for stdio mode where the token comes from an environment variable.
-//
-// The IntegrationsService client is co-hosted at baseURL — use
-// NewStaticTokenClientsWithIntegrationsURL when a separate base URL is configured.
-func NewStaticTokenClients(baseURL, apiKey string) *Clients {
-	return NewStaticTokenClientsWithIntegrationsURL(baseURL, baseURL, apiKey)
-}
-
-// NewStaticTokenClientsWithIntegrationsURL is the variant that lets the
-// caller route IntegrationsService RPCs to a distinct base URL. All other
-// service clients use baseURL.
-func NewStaticTokenClientsWithIntegrationsURL(baseURL, integrationsURL, apiKey string) *Clients {
-	interceptor := staticTokenInterceptor(apiKey)
-	opts := connect.WithInterceptors(interceptor)
-	return newClients(baseURL, integrationsURL, http.DefaultClient, opts)
-}
-
-// NewDynamicTokenClients creates clients that extract the API key from the MCP
-// auth context on each request. Used for HTTP mode where the token is verified
-// by the RequireBearerToken middleware.
+// NewDynamicTokenClients creates clients that extract the bearer token from the MCP
+// auth context on each request. Used for HTTP mode where the OAuth bearer is
+// verified by the RequireBearerToken middleware.
 //
 // The IntegrationsService client is co-hosted at baseURL — use
 // NewDynamicTokenClientsWithIntegrationsURL when a separate base URL is configured.
@@ -94,16 +76,6 @@ func newClients(baseURL, integrationsURL string, httpClient connect.HTTPClient, 
 		Devices:       pidgrv1connect.NewDeviceServiceClient(httpClient, baseURL, grpc, opts),
 		Insights:      pidgrv1connect.NewInsightsServiceClient(httpClient, baseURL, grpc, opts),
 		Integrations:  pidgrv1connect.NewIntegrationsServiceClient(httpClient, integrationsURL, grpc, opts),
-	}
-}
-
-// staticTokenInterceptor returns an interceptor that adds a static Bearer token header.
-func staticTokenInterceptor(token string) connect.UnaryInterceptorFunc {
-	return func(next connect.UnaryFunc) connect.UnaryFunc {
-		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			req.Header().Set("Authorization", "Bearer "+token)
-			return next(ctx, req)
-		}
 	}
 }
 
