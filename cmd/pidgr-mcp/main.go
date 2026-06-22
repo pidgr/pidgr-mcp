@@ -17,7 +17,7 @@ import (
 
 	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/pidgr/pidgr-mcp/internal/auth"
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	"github.com/pidgr/pidgr-mcp/internal/oauth"
 	"github.com/pidgr/pidgr-mcp/internal/observability"
 	"github.com/pidgr/pidgr-mcp/internal/tools"
@@ -118,13 +118,23 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	authMiddleware := mcpauth.RequireBearerToken(auth.VerifyAPIKey, nil)
+	// HTTP mode is a hosted MCP acting as an OAuth resource server. The bearer
+	// must be a Pidgr-issued OAuth JWT (RS256), verified against the provider's
+	// JWKS. pidgr_k_ API keys are no longer accepted. On success the same bearer
+	// is forwarded to pidgr-api, which does the authoritative scope∩principal
+	// enforcement (A6).
+	verifier := oauth.NewVerifier(oauth.VerifierConfig{Issuer: cfg.OAuthIssuer})
+	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, &mcpauth.RequireBearerTokenOptions{
+		ResourceMetadataURL: cfg.OAuthIssuer + resourceMetadataPath,
+	})
+
+	prmHandler := mcpauth.ProtectedResourceMetadataHandler(protectedResourceMetadata(cfg))
 
 	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
 
-	mux := newHTTPMux(authMiddleware, handler)
+	mux := newHTTPMux(authMiddleware, handler, prmHandler)
 
 	httpServer := &http.Server{
 		Addr:           cfg.Addr,
@@ -151,29 +161,46 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	return nil
 }
 
-// newHTTPMux builds the HTTP mux used by the server. It registers two routes:
+// newHTTPMux builds the HTTP mux used by the server. It registers three routes:
 //
 //   - GET /healthz returns 200 with a JSON body. It is unauthenticated so that
 //     load-balancer and container orchestrator health checks can probe the
 //     server without credentials.
+//   - GET /.well-known/oauth-protected-resource serves RFC 9728 protected-resource
+//     metadata advertising the Pidgr OAuth provider as the authorization server.
+//     It is unauthenticated so MCP clients can discover where to authenticate.
 //   - / is the catch-all for the MCP transport and is wrapped in the bearer
-//     token middleware so every other path requires a valid API key.
+//     token middleware so every other path requires a valid OAuth JWT.
 //
-// http.ServeMux matches the more specific pattern first, so /healthz takes
-// precedence over the / catch-all.
+// http.ServeMux matches the more specific pattern first, so /healthz and the
+// well-known path take precedence over the / catch-all.
 //
 // This constructor exists so tests exercise the real routing instead of a
-// hand-rolled duplicate — registering /healthz here instead of inline in
-// runHTTP prevents the route from being silently dropped again.
-func newHTTPMux(authMiddleware func(http.Handler) http.Handler, mcpHandler http.Handler) *http.ServeMux {
+// hand-rolled duplicate — registering routes here instead of inline in runHTTP
+// prevents a route from being silently dropped again.
+func newHTTPMux(authMiddleware func(http.Handler) http.Handler, mcpHandler, prmHandler http.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
+	mux.Handle(resourceMetadataPath, prmHandler)
 	mux.Handle("/", authMiddleware(mcpHandler))
 	return mux
+}
+
+const resourceMetadataPath = "/.well-known/oauth-protected-resource"
+
+// protectedResourceMetadata builds the RFC 9728 metadata advertising the Pidgr
+// OAuth provider as this resource server's authorization server.
+func protectedResourceMetadata(cfg *config) *oauthex.ProtectedResourceMetadata {
+	return &oauthex.ProtectedResourceMetadata{
+		Resource:               cfg.ResourceURL,
+		AuthorizationServers:   []string{cfg.OAuthIssuer},
+		ScopesSupported:        strings.Fields(cfg.OAuthScope),
+		BearerMethodsSupported: []string{"header"},
+	}
 }
 
 // securityHeaders adds standard security response headers.
@@ -197,12 +224,14 @@ type config struct {
 	OAuthIssuer     string
 	OAuthClientID   string
 	OAuthScope      string
+	ResourceURL     string
 }
 
 const (
 	defaultOAuthIssuer   = "https://auth.pidgr.com"
 	defaultOAuthClientID = "pidgr-mcp"
 	defaultOAuthScope    = "campaigns:read campaigns:write templates:write channels:dispatch reachability:write members:read"
+	defaultResourceURL   = "https://mcp.pidgr.com"
 )
 
 func parseConfig() (*config, error) {
@@ -220,13 +249,16 @@ func parseConfig() (*config, error) {
 		OAuthIssuer:     getEnv("PIDGR_OAUTH_ISSUER", defaultOAuthIssuer),
 		OAuthClientID:   getEnv("PIDGR_OAUTH_CLIENT_ID", defaultOAuthClientID),
 		OAuthScope:      getEnv("PIDGR_OAUTH_SCOPE", defaultOAuthScope),
+		// ResourceURL is this resource server's identifier, advertised in the
+		// protected-resource metadata (HTTP mode).
+		ResourceURL: getEnv("PIDGR_MCP_RESOURCE_URL", defaultResourceURL),
 	}
 
 	switch cfg.Transport {
 	case "stdio":
 		// stdio is OAuth-only; the browser flow needs no up-front validation here.
 	case "http":
-		// HTTP mode validates API keys via the Authorization header.
+		// HTTP mode verifies OAuth Bearer JWTs via the Authorization header.
 	default:
 		return nil, fmt.Errorf("PIDGR_MCP_TRANSPORT must be 'stdio' or 'http', got %q", cfg.Transport)
 	}

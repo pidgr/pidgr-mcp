@@ -17,6 +17,7 @@ type metadata struct {
 	Issuer                        string   `json:"issuer"`
 	AuthorizationEndpoint         string   `json:"authorization_endpoint"`
 	TokenEndpoint                 string   `json:"token_endpoint"`
+	JWKSURI                       string   `json:"jwks_uri"`
 	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported"`
 }
 
