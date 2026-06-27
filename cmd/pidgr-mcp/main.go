@@ -125,7 +125,13 @@ func runHTTP(server *mcp.Server, cfg *config) error {
 	// enforcement (A6).
 	verifier := oauth.NewVerifier(oauth.VerifierConfig{Issuer: cfg.OAuthIssuer})
 	authMiddleware := mcpauth.RequireBearerToken(verifier.Verify, &mcpauth.RequireBearerTokenOptions{
-		ResourceMetadataURL: cfg.OAuthIssuer + resourceMetadataPath,
+		// Advertise THIS resource server's own protected-resource metadata
+		// (served below at cfg.ResourceURL + resourceMetadataPath), not the
+		// authorization server's. Per RFC 9728 the client validates that the
+		// metadata's `resource` equals the server it connected to; pointing at
+		// cfg.OAuthIssuer's PRM returns resource=api.pidgr.com, which fails the
+		// match against mcp.pidgr.com ("Protected resource ... does not match").
+		ResourceMetadataURL: cfg.ResourceURL + resourceMetadataPath,
 	})
 
 	prmHandler := mcpauth.ProtectedResourceMetadataHandler(protectedResourceMetadata(cfg))
