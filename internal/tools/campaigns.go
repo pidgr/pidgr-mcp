@@ -10,22 +10,22 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	pidgrv1 "github.com/pidgr/pidgr-proto/gen/go/pidgr/v1"
 	"github.com/pidgr/pidgr-mcp/internal/convert"
 	"github.com/pidgr/pidgr-mcp/internal/transport"
+	pidgrv1 "github.com/pidgr/pidgr-proto/gen/go/pidgr/v1"
 )
 
 // ── Input types ─────────────────────────────────────────────────────────────
 
 type CreateCampaignInput struct {
-	Name            string                    `json:"name" jsonschema:"Campaign name (max 200 chars)"`
-	TemplateID      string                    `json:"template_id" jsonschema:"Template UUID to use for rendering"`
-	TemplateVersion int32                     `json:"template_version,omitempty" jsonschema:"Template version to pin"`
-	UserIDs         []string                  `json:"user_ids,omitempty" jsonschema:"Audience user IDs (max 100000)"`
-	SenderName      string                    `json:"sender_name" jsonschema:"Sender shown to recipients. MUST exactly match the name of a team registered in the org — the server rejects anything else (INVALID_ARGUMENT). Call list_teams and pick an existing team name; never invent or guess one. If no suitable team exists, create it with create_team first."`
-	Title           string                    `json:"title,omitempty" jsonschema:"Optional user-facing title override (max 200 chars)"`
-	Workflow        json.RawMessage            `json:"workflow" jsonschema:"REQUIRED protojson WorkflowDefinition. Use full STEP_TYPE_* enum names and the typed oneof config key (sendNotification/deadlineCheck/...). Example: {\"steps\":[{\"id\":\"send\",\"type\":\"STEP_TYPE_SEND_NOTIFICATION\",\"sendNotification\":{\"type\":\"push\",\"actionType\":\"ACTION_TYPE_ACK\"},\"transitions\":{\"completed\":\"wait\"}},{\"id\":\"wait\",\"type\":\"STEP_TYPE_DEADLINE_CHECK\",\"deadlineCheck\":{\"delay\":\"5m\"},\"transitions\":{\"completed\":\"done\"}},{\"id\":\"done\",\"type\":\"STEP_TYPE_MARK_MISSED\"}]}. Or copy the workflow from an existing campaign via list_campaigns/get_campaign."`
-	Audience        []*AudienceMemberInput    `json:"audience,omitempty" jsonschema:"Rich audience with per-user template variables"`
+	Name            string                 `json:"name" jsonschema:"Campaign name (max 200 chars)"`
+	TemplateID      string                 `json:"template_id" jsonschema:"Template UUID to use for rendering"`
+	TemplateVersion int32                  `json:"template_version,omitempty" jsonschema:"Template version to pin"`
+	UserIDs         []string               `json:"user_ids,omitempty" jsonschema:"Audience user IDs (max 100000)"`
+	SenderName      string                 `json:"sender_name" jsonschema:"Sender shown to recipients. MUST exactly match the name of a team registered in the org — the server rejects anything else (INVALID_ARGUMENT). Call list_teams and pick an existing team name; never invent or guess one. If no suitable team exists, create it with create_team first."`
+	Title           string                 `json:"title,omitempty" jsonschema:"Optional user-facing title override (max 200 chars)"`
+	Workflow        json.RawMessage        `json:"workflow" jsonschema:"REQUIRED protojson WorkflowDefinition. Use full STEP_TYPE_* enum names and the typed oneof config key (sendNotification/deadlineCheck/...). Example: {\"steps\":[{\"id\":\"send\",\"type\":\"STEP_TYPE_SEND_NOTIFICATION\",\"sendNotification\":{\"type\":\"push\",\"actionType\":\"ACTION_TYPE_ACK\"},\"transitions\":{\"completed\":\"wait\"}},{\"id\":\"wait\",\"type\":\"STEP_TYPE_DEADLINE_CHECK\",\"deadlineCheck\":{\"delay\":\"5m\"},\"transitions\":{\"completed\":\"done\"}},{\"id\":\"done\",\"type\":\"STEP_TYPE_MARK_MISSED\"}]}. Or copy the workflow from an existing campaign via list_campaigns/get_campaign."`
+	Audience        []*AudienceMemberInput `json:"audience,omitempty" jsonschema:"Rich audience with per-user template variables"`
 }
 
 type AudienceMemberInput struct {
@@ -34,13 +34,18 @@ type AudienceMemberInput struct {
 }
 
 type UpdateCampaignInput struct {
-	CampaignID      string                      `json:"campaign_id" jsonschema:"Campaign UUID to update"`
-	Name            string                      `json:"name,omitempty" jsonschema:"Updated campaign name"`
-	SenderName      string                      `json:"sender_name,omitempty" jsonschema:"Updated sender. MUST exactly match a registered team name (see list_teams) — the server rejects anything else. Omit to keep the current sender."`
-	Title           string                      `json:"title,omitempty" jsonschema:"Updated title override"`
-	TemplateID      string                      `json:"template_id,omitempty" jsonschema:"Updated template UUID"`
-	TemplateVersion int32                       `json:"template_version,omitempty" jsonschema:"Updated template version"`
-	Workflow        json.RawMessage             `json:"workflow,omitempty" jsonschema:"Updated workflow DAG"`
+	CampaignID      string                 `json:"campaign_id" jsonschema:"Campaign UUID to update"`
+	Name            string                 `json:"name,omitempty" jsonschema:"Updated campaign name"`
+	SenderName      string                 `json:"sender_name,omitempty" jsonschema:"Updated sender. MUST exactly match a registered team name (see list_teams) — the server rejects anything else. Omit to keep the current sender."`
+	Title           string                 `json:"title,omitempty" jsonschema:"Updated title override"`
+	TemplateID      string                 `json:"template_id,omitempty" jsonschema:"Updated template UUID"`
+	TemplateVersion int32                  `json:"template_version,omitempty" jsonschema:"Updated template version"`
+	Workflow        json.RawMessage        `json:"workflow,omitempty" jsonschema:"Updated workflow DAG"`
+	Audience        []*AudienceMemberInput `json:"audience,omitempty" jsonschema:"Replaces the campaign's frozen audience WHOLESALE with this list (only valid while the campaign is CREATED). Omit to leave the audience unchanged; an explicit empty array clears it. Read the current audience first with get_campaign_audience and send the complete new list — partial additions are not merged."`
+}
+
+type GetCampaignAudienceInput struct {
+	CampaignID string `json:"campaign_id" jsonschema:"Campaign UUID whose frozen audience to read"`
 }
 
 type StartCampaignInput struct {
@@ -120,21 +125,48 @@ func registerCampaignTools(s *mcp.Server, c *transport.Clients) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "update_campaign",
-		Description: "Update a draft campaign (CREATED status only). Only non-empty fields are changed. A new `sender_name` MUST be a registered team name (see list_teams). Use list_campaigns to find the campaign UUID.",
+		Description: "Update a draft campaign (CREATED status only — started campaigns can only be duplicated). Only non-empty fields are changed. A new `sender_name` MUST be a registered team name (see list_teams). Providing `audience` replaces the frozen audience wholesale. Use list_campaigns to find the campaign UUID.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateCampaignInput) (*mcp.CallToolResult, any, error) {
 		wf, err := workflowFromJSON(input.Workflow)
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
 		}
+		// nil = field omitted = no audience change. A non-nil (possibly empty)
+		// list is a wholesale replacement — the wrapper message carries that
+		// presence distinction on the wire.
+		var replacement *pidgrv1.AudienceReplacement
+		if input.Audience != nil {
+			members := make([]*pidgrv1.AudienceMember, len(input.Audience))
+			for i, m := range input.Audience {
+				members[i] = &pidgrv1.AudienceMember{UserId: m.UserID, Variables: m.Variables}
+			}
+			replacement = &pidgrv1.AudienceReplacement{Members: members}
+		}
 		resp, err := c.Campaigns.UpdateCampaign(ctx, connect.NewRequest(&pidgrv1.UpdateCampaignRequest{
-			CampaignId:      input.CampaignID,
-			Name:            input.Name,
-			SenderName:      input.SenderName,
-			Title:           input.Title,
-			TemplateId:      input.TemplateID,
-			TemplateVersion: input.TemplateVersion,
-			Workflow:        wf,
+			CampaignId:          input.CampaignID,
+			Name:                input.Name,
+			SenderName:          input.SenderName,
+			Title:               input.Title,
+			TemplateId:          input.TemplateID,
+			TemplateVersion:     input.TemplateVersion,
+			Workflow:            wf,
+			AudienceReplacement: replacement,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_campaign_audience",
+		Description: "Read a campaign's frozen audience snapshot, enriched per entry with email, display name, and whether the member is still reachable (active). Use before update_campaign's `audience` to build the complete replacement list. Empty for campaigns without a snapshot.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetCampaignAudienceInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Campaigns.GetCampaignAudience(ctx, connect.NewRequest(&pidgrv1.GetCampaignAudienceRequest{
+			CampaignId: input.CampaignID,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
