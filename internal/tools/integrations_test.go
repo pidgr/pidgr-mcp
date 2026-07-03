@@ -671,7 +671,7 @@ func TestGetCampaignArchetypeBreakdownInsufficientHistory(t *testing.T) {
 func TestIntegrationsClientPopulatedByTransport(t *testing.T) {
 	oauthClients := transport.NewOAuthClients("http://localhost:50051", func(context.Context) (string, error) {
 		return "test-token", nil
-	})
+	}, nil)
 	if oauthClients.Integrations == nil {
 		t.Error("NewOAuthClients did not set Integrations client")
 	}

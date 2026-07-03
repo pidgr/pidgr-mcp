@@ -285,3 +285,146 @@ func TestClientReauthsWhenRefreshFails(t *testing.T) {
 	assert.Equal(t, "authorization_code", forms[1].Get("grant_type")) // re-auth fallback
 	assert.Equal(t, "reauth-code", forms[1].Get("code"))
 }
+
+// capturingBrowser records the authorize URL before driving the consent flow,
+// so tests can assert on the authorization request parameters.
+func capturingBrowser(t *testing.T, code string, captured *string) BrowserOpener {
+	inner := drivingBrowser(t, code)
+	return func(authorizeURL string) error {
+		*captured = authorizeURL
+		return inner(authorizeURL)
+	}
+}
+
+func TestStepUpForcesFreshAuthorizationWithMaxAgeZero(t *testing.T) {
+	f := newFakeProvider()
+	defer f.Close()
+	f.setTokens("stepped-up-at", "stepped-up-rt", 3600)
+
+	// A valid cached token must NOT satisfy a step-up: the whole point is that
+	// the server judged its authentication too old.
+	store := &memStore{}
+	_ = store.Save(&Token{
+		AccessToken:  "cached-at",
+		RefreshToken: "cached-rt",
+		Expiry:       time.Now().Add(time.Hour),
+	})
+
+	var authorizeURL string
+	c := newTestClient(t, f, store, capturingBrowser(t, "stepup-code", &authorizeURL), time.Now)
+
+	tok, err := c.StepUp(context.Background(), "cached-at")
+	require.NoError(t, err)
+	assert.Equal(t, "stepped-up-at", tok)
+
+	u, err := url.Parse(authorizeURL)
+	require.NoError(t, err)
+	assert.Equal(t, "0", u.Query().Get("max_age"), "step-up must send max_age=0 to force fresh authentication")
+
+	forms := f.forms()
+	require.Len(t, forms, 1)
+	assert.Equal(t, "authorization_code", forms[0].Get("grant_type"), "step-up must run the full authorization_code flow, not a refresh")
+
+	// The cached token pair is replaced so subsequent calls use the fresh one.
+	saved, _ := store.Load()
+	require.NotNil(t, saved)
+	assert.Equal(t, "stepped-up-at", saved.AccessToken)
+	assert.Equal(t, "stepped-up-rt", saved.RefreshToken)
+}
+
+func TestStepUpReusesTokenMintedByConcurrentStepUp(t *testing.T) {
+	f := newFakeProvider()
+	defer f.Close()
+	f.setTokens("fresh-at", "fresh-rt", 3600)
+
+	store := &memStore{}
+	opens := 0
+	inner := drivingBrowser(t, "stepup-code")
+	opener := func(u string) error {
+		opens++
+		return inner(u)
+	}
+	c := newTestClient(t, f, store, opener, time.Now)
+
+	tok1, err := c.StepUp(context.Background(), "stale-at")
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-at", tok1)
+	assert.Equal(t, 1, opens)
+
+	// A second challenge against the same stale token (a racing tool call)
+	// must reuse the token the first step-up just minted, not prompt again.
+	tok2, err := c.StepUp(context.Background(), "stale-at")
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-at", tok2)
+	assert.Equal(t, 1, opens, "the freshly stepped-up token must be reused without a second browser flow")
+}
+
+func TestStepUpOnTheSteppedUpTokenPromptsAgain(t *testing.T) {
+	f := newFakeProvider()
+	defer f.Close()
+	f.setTokens("fresh-1", "rt-1", 3600)
+
+	store := &memStore{}
+	opens := 0
+	inner := drivingBrowser(t, "stepup-code")
+	opener := func(u string) error {
+		opens++
+		return inner(u)
+	}
+	c := newTestClient(t, f, store, opener, time.Now)
+
+	_, err := c.StepUp(context.Background(), "stale-at")
+	require.NoError(t, err)
+
+	// A challenge against the step-up-minted token itself means that token is
+	// no longer fresh enough — it must not be reused.
+	f.setTokens("fresh-2", "rt-2", 3600)
+	tok, err := c.StepUp(context.Background(), "fresh-1")
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-2", tok)
+	assert.Equal(t, 2, opens)
+}
+
+func TestStepUpDoesNotReuseRefreshMintedToken(t *testing.T) {
+	f := newFakeProvider()
+	defer f.Close()
+	f.setTokens("fresh-at", "fresh-rt", 3600)
+
+	// The store holds a token that differs from the challenged one but was NOT
+	// minted by a step-up (e.g. a routine refresh rotated it). A refresh does
+	// not renew the authentication event, so it cannot satisfy the challenge.
+	store := &memStore{}
+	_ = store.Save(&Token{
+		AccessToken:  "refresh-rotated-at",
+		RefreshToken: "rt",
+		Expiry:       time.Now().Add(time.Hour),
+	})
+
+	opens := 0
+	inner := drivingBrowser(t, "stepup-code")
+	opener := func(u string) error {
+		opens++
+		return inner(u)
+	}
+	c := newTestClient(t, f, store, opener, time.Now)
+
+	tok, err := c.StepUp(context.Background(), "stale-at")
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-at", tok)
+	assert.Equal(t, 1, opens, "a refresh-rotated token must not short-circuit the step-up")
+}
+
+func TestRegularAuthorizationOmitsMaxAge(t *testing.T) {
+	f := newFakeProvider()
+	defer f.Close()
+
+	var authorizeURL string
+	c := newTestClient(t, f, &memStore{}, capturingBrowser(t, "auth-code", &authorizeURL), time.Now)
+
+	_, err := c.AccessToken(context.Background())
+	require.NoError(t, err)
+
+	u, err := url.Parse(authorizeURL)
+	require.NoError(t, err)
+	assert.False(t, u.Query().Has("max_age"), "a non-step-up authorization must not request forced re-authentication")
+}

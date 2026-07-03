@@ -91,6 +91,11 @@ loopback redirect:
 4. Tokens are cached in your OS keychain (with a `~/.config/pidgr/` file
    fallback, mode `0600`) and refreshed automatically. When a refresh fails the
    browser flow runs again.
+5. Some sensitive operations require a recent authentication (OAuth step-up,
+   RFC 9470). When the API answers with an `insufficient_user_authentication`
+   challenge, the server re-opens your browser with `max_age=0` to force a
+   fresh login, then retries the request once with the new token. If the retry
+   is challenged again, the error is surfaced instead of looping.
 
 The authorize and token endpoints are discovered from the issuer's
 `/.well-known/oauth-authorization-server` document — nothing is hardcoded.
