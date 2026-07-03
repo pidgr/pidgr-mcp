@@ -105,7 +105,7 @@ func newStdioClients(cfg *config) (*transport.Clients, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init oauth client: %w", err)
 	}
-	return transport.NewOAuthClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, oauthClient.AccessToken), nil
+	return transport.NewOAuthClientsWithIntegrationsURL(cfg.ApiURL, cfg.IntegrationsURL, oauthClient.AccessToken, oauthClient.StepUp), nil
 }
 
 func runStdio(server *mcp.Server) error {

@@ -52,6 +52,12 @@ type Client struct {
 	now  func() time.Time
 	mu   sync.Mutex
 	meta *metadata
+	// stepUpToken is the access token minted by the most recent step-up
+	// authorization. It lets a step-up that lost the race to a concurrent one
+	// reuse the freshly-authenticated token instead of prompting the user
+	// again — only step-up-minted tokens qualify, because an ordinary refresh
+	// also rotates the access token without renewing the authentication event.
+	stepUpToken string
 }
 
 // NewClient validates the config and returns a ready OAuth client.
@@ -108,14 +114,50 @@ func (c *Client) AccessToken(ctx context.Context) (string, error) {
 		// fresh browser authorization.
 	}
 
-	tok, err := c.authorize(ctx)
+	tok, err := c.authorizeAndStore(ctx, false)
 	if err != nil {
 		return "", err
 	}
-	if err := c.cfg.Store.Save(tok); err != nil {
+	return tok.AccessToken, nil
+}
+
+// StepUp answers an RFC 9470 insufficient_user_authentication challenge: the
+// resource server judged the challenged token's authentication too old, so the
+// cached token — however unexpired — cannot satisfy the request. It re-runs the
+// browser authorization with max_age=0 to force a fresh login, replaces the
+// stored token pair, and returns the new access token. staleToken is the token
+// the challenge was issued against. It is safe for concurrent use.
+func (c *Client) StepUp(ctx context.Context, staleToken string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// A concurrent step-up may have completed while this one waited on the
+	// lock; its token already carries a current authentication, so reuse it
+	// rather than opening a second browser window.
+	if stored, err := c.cfg.Store.Load(); err == nil && stored != nil &&
+		stored.AccessToken != staleToken &&
+		stored.AccessToken == c.stepUpToken &&
+		!stored.expired(c.now(), refreshLeeway) {
+		return stored.AccessToken, nil
+	}
+
+	tok, err := c.authorizeAndStore(ctx, true)
+	if err != nil {
 		return "", err
 	}
+	c.stepUpToken = tok.AccessToken
 	return tok.AccessToken, nil
+}
+
+func (c *Client) authorizeAndStore(ctx context.Context, forceFresh bool) (*Token, error) {
+	tok, err := c.authorize(ctx, forceFresh)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.cfg.Store.Save(tok); err != nil {
+		return nil, err
+	}
+	return tok, nil
 }
 
 func (c *Client) metadata(ctx context.Context) (*metadata, error) {
@@ -131,7 +173,9 @@ func (c *Client) metadata(ctx context.Context) (*metadata, error) {
 }
 
 // authorize runs the full authorization_code+PKCE+loopback browser flow.
-func (c *Client) authorize(ctx context.Context) (*Token, error) {
+// forceFresh adds max_age=0 so the authorization server re-authenticates the
+// user even when a login session exists, making the token's auth_time current.
+func (c *Client) authorize(ctx context.Context, forceFresh bool) (*Token, error) {
 	meta, err := c.metadata(ctx)
 	if err != nil {
 		return nil, err
@@ -159,6 +203,7 @@ func (c *Client) authorize(ctx context.Context) (*Token, error) {
 		state:       state,
 		challenge:   p.Challenge,
 		method:      p.Method,
+		forceFresh:  forceFresh,
 	})
 	if err != nil {
 		return nil, err
@@ -253,6 +298,9 @@ type authorizeParams struct {
 	state       string
 	challenge   string
 	method      string
+	// forceFresh requests re-authentication regardless of any existing session
+	// (step-up), via max_age=0.
+	forceFresh bool
 }
 
 func buildAuthorizeURL(endpoint string, p authorizeParams) (string, error) {
@@ -269,6 +317,9 @@ func buildAuthorizeURL(endpoint string, p authorizeParams) (string, error) {
 	q.Set("state", p.state)
 	if p.scope != "" {
 		q.Set("scope", p.scope)
+	}
+	if p.forceFresh {
+		q.Set("max_age", "0")
 	}
 	u.RawQuery = q.Encode()
 	return u.String(), nil

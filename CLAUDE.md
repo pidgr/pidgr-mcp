@@ -57,7 +57,9 @@ stdio is OAuth-only. The authorization_code + PKCE + RFC 8252 loopback flow runs
 on first use: discovery → browser consent on the issuer → loopback captures the
 code → `/token` exchange → access + rotating refresh tokens stored in the OS
 keychain (with a `~/.config/pidgr/oauth-token.json` 0600 file fallback). Tokens
-refresh automatically; if refresh fails the browser flow re-runs.
+refresh automatically; if refresh fails the browser flow re-runs. An RFC 9470
+`insufficient_user_authentication` challenge (step-up) re-runs the browser flow
+with `max_age=0` and retries the RPC once.
 
 ### HTTP authentication
 
