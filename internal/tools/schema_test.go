@@ -6,6 +6,8 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -55,6 +57,34 @@ func schemaHasProperty(t *testing.T, tool *mcp.Tool, prop string) bool {
 	props, _ := schema["properties"].(map[string]any)
 	_, ok := props[prop]
 	return ok
+}
+
+// schemaRequired returns the tool's declared required property names, or nil
+// when the schema declares none.
+func schemaRequired(t *testing.T, tool *mcp.Tool) []string {
+	t.Helper()
+	b, _ := json.Marshal(tool.InputSchema)
+	var schema map[string]any
+	if err := json.Unmarshal(b, &schema); err != nil {
+		t.Errorf("tool %q: failed to parse schema: %v", tool.Name, err)
+		return nil
+	}
+	raw, _ := schema["required"].([]any)
+	names := make([]string, 0, len(raw))
+	for _, r := range raw {
+		if s, ok := r.(string); ok {
+			names = append(names, s)
+		}
+	}
+	return names
+}
+
+func contains(names []string, want string) bool {
+	return slices.Contains(names, want)
+}
+
+func containsFold(haystack, needle string) bool {
+	return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
 }
 
 func TestAllToolsHaveDescriptions(t *testing.T) {

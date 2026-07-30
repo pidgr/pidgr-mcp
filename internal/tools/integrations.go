@@ -52,6 +52,29 @@ type SetCostCapPolicyInput struct {
 	CapMicros int64  `json:"cap_micros" jsonschema:"Calendar-month cost cap in micros (1/1_000_000 USD). Admin-only."`
 }
 
+type GetOrgWebhookConfigInput struct {
+	OrgID string `json:"org_id" jsonschema:"Organization UUID whose WEBHOOK channel configuration to read"`
+}
+
+type SetOrgWebhookConfigInput struct {
+	OrgID   string  `json:"org_id" jsonschema:"Organization UUID to configure"`
+	URL     string  `json:"url" jsonschema:"Destination URL Pidgr POSTs notification events to. Must be https with a non-private, non-loopback host"`
+	Enabled bool    `json:"enabled" jsonschema:"Whether dispatch via the WEBHOOK channel is enabled for the org"`
+	//nolint:gosec // G117: the RPC's write-only secret field, carried verbatim; never read back or logged.
+	Secret *string `json:"secret,omitempty" jsonschema:"Shared secret for the X-Pidgr-Signature HMAC-SHA256 header (16-256 bytes). Write-only. OMIT to keep the current secret; setting it rotates the key and breaks the receiver's verification until it is updated too"`
+}
+
+type GetRegionPolicyInput struct {
+	OrgID   string `json:"org_id" jsonschema:"Organization UUID owning the policy"`
+	Channel string `json:"channel" jsonschema:"Channel enum name (e.g. CHANNEL_NAME_EMAIL)"`
+}
+
+type SetRegionPolicyInput struct {
+	OrgID          string   `json:"org_id" jsonschema:"Organization UUID owning the policy"`
+	Channel        string   `json:"channel" jsonschema:"Channel enum name (e.g. CHANNEL_NAME_EMAIL)"`
+	AllowedRegions []string `json:"allowed_regions,omitempty" jsonschema:"AWS region identifiers dispatch may run in (e.g. eu-west-1). Empty or omitted clears the policy — it does NOT block every region"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerIntegrationsTools(s *mcp.Server, c *transport.Clients) {
@@ -154,6 +177,83 @@ func registerIntegrationsTools(s *mcp.Server, c *transport.Clients) {
 			OrgId:     input.OrgID,
 			Channel:   channel,
 			CapMicros: input.CapMicros,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_org_webhook_config",
+		Description: "Read the org's WEBHOOK channel configuration: destination URL, whether dispatch is enabled, and whether a signing secret is configured. The secret value itself is never returned.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input GetOrgWebhookConfigInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Integrations.GetOrgWebhookConfig(ctx, connect.NewRequest(&pidgrv1.GetOrgWebhookConfigRequest{
+			OrgId: input.OrgID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "set_org_webhook_config",
+		Description: "Set the org's WEBHOOK channel destination and enabled flag. The URL must be https with a non-private, non-loopback host. " +
+			"`secret` is write-only and rotates the X-Pidgr-Signature HMAC key: omit it to keep the current secret, since rotating breaks the receiver's verification until it is updated too.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input SetOrgWebhookConfigInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Integrations.SetOrgWebhookConfig(ctx, connect.NewRequest(&pidgrv1.SetOrgWebhookConfigRequest{
+			OrgId:   input.OrgID,
+			Url:     input.URL,
+			Enabled: input.Enabled,
+			Secret:  input.Secret,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "get_region_policy",
+		Description: "Read the per-(org, channel) region policy — the AWS regions dispatch for that channel may run in. Always returns a policy: an empty allowed_regions list means \"no policy configured\", NOT \"no regions allowed\".",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input GetRegionPolicyInput) (*mcp.CallToolResult, any, error) {
+		channel, err := parseChannelName(input.Channel)
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		resp, err := c.Integrations.GetRegionPolicy(ctx, connect.NewRequest(&pidgrv1.GetRegionPolicyRequest{
+			OrgId:   input.OrgID,
+			Channel: channel,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "set_region_policy",
+		Description: "Replace the per-(org, channel) region policy with the given AWS region list. Omitting allowed_regions (or passing an empty list) clears the policy rather than blocking every region.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input SetRegionPolicyInput) (*mcp.CallToolResult, any, error) {
+		channel, err := parseChannelName(input.Channel)
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		resp, err := c.Integrations.SetRegionPolicy(ctx, connect.NewRequest(&pidgrv1.SetRegionPolicyRequest{
+			OrgId:          input.OrgID,
+			Channel:        channel,
+			AllowedRegions: input.AllowedRegions,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)

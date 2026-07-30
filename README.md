@@ -16,15 +16,17 @@ Pidgr is an internal communication platform that replaces passive email and chat
 
 **Users** — Invite users, manage profiles (department, title, location), assign roles, deactivate accounts.
 
-**Organizations** — Configure organization settings, default workflows, industry, and SSO attribute mappings.
+**Organizations** — Configure organization settings, default workflows, industry, and SSO attribute mappings. Read and flip the org-level privacy toggles (`get_org_privacy_settings`, `update_org_privacy_settings`) — each is tri-state, and `behavioral_analytics_enabled` gates tap-event ingestion and the tap heatmap. Create and permanently delete sandbox organizations (`create_sandbox_organization`, `delete_sandbox_organization`).
 
 **Roles & Permissions** — Create custom roles with granular permission sets. Assign roles to users.
 
 **API Keys** — Create scoped API keys with optional expiration. List and revoke keys.
 
-**Analytics** — Query aggregated touch heatmap data with screen, campaign, and time range filters. List session recordings and fetch snapshot data for playback.
+**Privacy & Compliance** — Handle subject-access requests (export, rectify, delete, restrict processing) and org-wide exports (`export_org_data`). Review the audit trail and the organization's own security incidents (`list_org_security_incidents`).
 
-**Integrations** — Manage per-channel recipient reachability (`list_reachabilities_for_user`, `upsert_reachability`, `remove_reachability`) and the per-`(org, channel)` cost-cap policy (`get_cost_cap_policy`, `set_cost_cap_policy`). Reachability identifiers (email addresses, phone numbers, Slack user ids, etc.) are sensitive — they are column-level KMS-encrypted server-side, never logged, and never returned over the wire. Calls route to the IntegrationsService endpoint (see `PIDGR_INTEGRATIONS_URL` below).
+**Analytics** — Query aggregated touch heatmap data with screen, campaign, and time range filters. List session recordings and fetch snapshot data for playback. Retrigger clustering for a single group (`trigger_archetype_clustering`) without the cost of a full training run — both share the org's monthly manual-retrain quota.
+
+**Integrations** — Manage per-channel recipient reachability (`list_reachabilities_for_user`, `upsert_reachability`, `remove_reachability`) and the per-`(org, channel)` cost-cap policy (`get_cost_cap_policy`, `set_cost_cap_policy`). Reachability identifiers (email addresses, phone numbers, Slack user ids, etc.) are sensitive — they are column-level KMS-encrypted server-side, never logged, and never returned over the wire. Configure the org's WEBHOOK destination (`get_org_webhook_config`, `set_org_webhook_config` — the signing secret is write-only and omitting it keeps the current one) and the per-`(org, channel)` region policy (`get_region_policy`, `set_region_policy`, where an empty region list means "no policy" rather than "deny all"). Calls route to the IntegrationsService endpoint (see `PIDGR_INTEGRATIONS_URL` below).
 
 ## Install
 

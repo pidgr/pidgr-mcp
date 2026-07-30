@@ -39,6 +39,10 @@ type GetInsightNarrativeInput struct {
 
 type TriggerMLPipelineInput struct{}
 
+type TriggerArchetypeClusteringInput struct {
+	GroupID string `json:"group_id" jsonschema:"Group UUID to recluster. The org comes from the caller's token"`
+}
+
 // ── Registration ────────────────────────────────────────────────────────────
 
 func registerInsightsTools(s *mcp.Server, c *transport.Clients) {
@@ -113,6 +117,22 @@ func registerInsightsTools(s *mcp.Server, c *transport.Clients) {
 		Description: "Manually trigger the ML training pipeline for the organization. Rate-limited by the org's monthly quota (default 3/month, auto-resets). Returns remaining retrains this month and the last training timestamp.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, _ TriggerMLPipelineInput) (*mcp.CallToolResult, any, error) {
 		resp, err := c.Insights.TriggerMLPipeline(ctx, connect.NewRequest(&pidgrv1.TriggerMLPipelineRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "trigger_archetype_clustering",
+		Description: "Recluster archetypes for a SINGLE group, reusing the already-deployed clustering model — no training runs, so it is much cheaper than trigger_ml_pipeline. " +
+			"Both draw on the same monthly manual-retrain quota, so prefer this one when only one group's archetypes are stale.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input TriggerArchetypeClusteringInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Insights.TriggerArchetypeClustering(ctx, connect.NewRequest(&pidgrv1.TriggerArchetypeClusteringRequest{
+			GroupId: input.GroupID,
+		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)
 			return r, nil, nil
