@@ -50,6 +50,13 @@ type GetDataExistenceConfirmationInput struct {
 	UserID string `json:"user_id" jsonschema:"User email or UUID to check data existence for"`
 }
 
+type ExportOrgDataInput struct{}
+
+type ListOrgSecurityIncidentsInput struct {
+	PageSize  int32  `json:"page_size,omitempty" jsonschema:"Max incidents per page (1-100, default 25)"`
+	PageToken string `json:"page_token,omitempty" jsonschema:"Continuation token from a previous response"`
+}
+
 type ListMyPrivacyRequestsInput struct {
 	PageSize    int32  `json:"page_size,omitempty" jsonschema:"Max items per page (1-100, default 25)"`
 	PageToken   string `json:"page_token,omitempty" jsonschema:"Pagination token from previous response"`
@@ -196,6 +203,36 @@ func registerPrivacyTools(s *mcp.Server, c *transport.Clients) {
 			PageToken:   input.PageToken,
 			RequestType: input.RequestType,
 			Status:      status,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "export_org_data",
+		Description: "Start an org-wide data export: configuration, users, campaigns, deliveries and audit events assembled into an encrypted bundle. " +
+			"Asynchronous — result_url is populated only once status reaches COMPLETED, so poll with the returned export_id. Distinct from export_user_data, which covers a single subject.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ExportOrgDataInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Privacy.ExportOrgData(ctx, connect.NewRequest(&pidgrv1.ExportOrgDataRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "list_org_security_incidents",
+		Description: "List security incidents recorded against the caller's organization, most recent first. Org-scoped: it never returns another tenant's incidents.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input ListOrgSecurityIncidentsInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Privacy.ListOrgSecurityIncidents(ctx, connect.NewRequest(&pidgrv1.ListOrgSecurityIncidentsRequest{
+			PageSize:  clampPageSize(input.PageSize),
+			PageToken: input.PageToken,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)

@@ -60,6 +60,21 @@ type UpdateAnalyticsEpsilonInput struct {
 	Epsilon float32 `json:"epsilon" jsonschema:"Differential privacy epsilon (0.5 to 5.0)"`
 }
 
+type GetOrgPrivacySettingsInput struct{}
+
+// UpdateOrgPrivacySettingsInput mirrors the proto's three optional bools:
+// every toggle is tri-state, so a nil pointer leaves that setting untouched
+// and a caller can flip one without restating the other two.
+type UpdateOrgPrivacySettingsInput struct {
+	AiClusteringEnabled        *bool `json:"ai_clustering_enabled,omitempty" jsonschema:"Enable or disable ML archetype clustering and ACK predictions. Omit to leave unchanged"`
+	BehavioralAnalyticsEnabled *bool `json:"behavioral_analytics_enabled,omitempty" jsonschema:"Enable or disable behavioral analytics. While disabled, tap-event ingestion is accepted and silently dropped and the Compass tap heatmap stays empty. Omit to leave unchanged"`
+	ThirdPartyChannelsEnabled  *bool `json:"third_party_channels_enabled,omitempty" jsonschema:"Enable or disable third-party notification channels. Omit to leave unchanged"`
+}
+
+type DeleteSandboxOrganizationInput struct {
+	OrgID string `json:"org_id" jsonschema:"UUID of the sandbox organization to delete. Verify it with list_user_sandboxes first"`
+}
+
 type UpdateSsoAttributeMappingsInput struct {
 	SsoAttributeMappings []SsoMappingInput `json:"sso_attribute_mappings" jsonschema:"Complete list of SSO mappings (replaces all existing)"`
 }
@@ -242,6 +257,54 @@ func registerOrganizationTools(s *mcp.Server, c *transport.Clients) {
 			ExpiresAt:            expiresAt,
 			DataGovernanceRegion: input.DataGovernanceRegion,
 			FixtureId:            input.FixtureID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "delete_sandbox_organization",
+		Description: "PERMANENTLY delete a sandbox organization and everything in it. Sandbox-only: standard organizations are rejected. " +
+			"Irreversible — resolve the id with list_user_sandboxes and confirm the name before calling.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input DeleteSandboxOrganizationInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.DeleteSandboxOrganization(ctx, connect.NewRequest(&pidgrv1.DeleteSandboxOrganizationRequest{
+			OrgId: input.OrgID,
+		}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_org_privacy_settings",
+		Description: "Read the org-level privacy toggles (AI clustering, behavioral analytics, third-party channels) with the consent-trace metadata for each: who last changed it and when. " +
+			"Start here when an analytics or clustering surface is unexpectedly empty — a disabled toggle degrades silently rather than erroring.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input GetOrgPrivacySettingsInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.GetOrgPrivacySettings(ctx, connect.NewRequest(&pidgrv1.GetOrgPrivacySettingsRequest{}))
+		if err != nil {
+			r, _ := convert.ErrorResult(err)
+			return r, nil, nil
+		}
+		r, err := convert.ProtoResult(resp.Msg)
+		return r, nil, err
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_org_privacy_settings",
+		Description: "Flip the org-level privacy toggles. Each is tri-state: omit a field to leave it unchanged. " +
+			"behavioral_analytics_enabled gates tap-event ingestion and the Compass tap heatmap; ai_clustering_enabled gates archetype clustering and ACK predictions; third_party_channels_enabled gates non-push channels. Every change is recorded with the acting user for the consent trace.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input UpdateOrgPrivacySettingsInput) (*mcp.CallToolResult, any, error) {
+		resp, err := c.Organizations.UpdateOrgPrivacySettings(ctx, connect.NewRequest(&pidgrv1.UpdateOrgPrivacySettingsRequest{
+			AiClusteringEnabled:        input.AiClusteringEnabled,
+			BehavioralAnalyticsEnabled: input.BehavioralAnalyticsEnabled,
+			ThirdPartyChannelsEnabled:  input.ThirdPartyChannelsEnabled,
 		}))
 		if err != nil {
 			r, _ := convert.ErrorResult(err)

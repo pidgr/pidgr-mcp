@@ -43,7 +43,7 @@ func TestRegisterAll(t *testing.T) {
 		t.Fatalf("ListTools error: %v", err)
 	}
 
-	want := 97
+	want := 107
 	if got := len(result.Tools); got != want {
 		t.Errorf("RegisterAll registered %d tools, want %d", got, want)
 		for _, tool := range result.Tools {
@@ -129,6 +129,15 @@ func TestToolNames(t *testing.T) {
 		"get_cost_cap_policy", "set_cost_cap_policy",
 		// Campaign archetype breakdown (1)
 		"get_campaign_archetype_breakdown",
+		// Org privacy settings + sandbox teardown (3)
+		"get_org_privacy_settings", "update_org_privacy_settings", "delete_sandbox_organization",
+		// Per-group reclustering (1)
+		"trigger_archetype_clustering",
+		// Org integrations config (4)
+		"get_org_webhook_config", "set_org_webhook_config",
+		"get_region_policy", "set_region_policy",
+		// Org-scoped privacy reads (2)
+		"export_org_data", "list_org_security_incidents",
 	}
 
 	registered := make(map[string]bool)

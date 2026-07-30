@@ -154,6 +154,22 @@ type fakeIntegrationsClient struct {
 	setCostCapPolicyResp *pidgrv1.SetCostCapPolicyResponse
 	setCostCapPolicyErr  error
 	setCostCapPolicyReq  *pidgrv1.SetCostCapPolicyRequest
+
+	getRegionPolicyResp *pidgrv1.GetRegionPolicyResponse
+	getRegionPolicyErr  error
+	getRegionPolicyReq  *pidgrv1.GetRegionPolicyRequest
+
+	setRegionPolicyResp *pidgrv1.SetRegionPolicyResponse
+	setRegionPolicyErr  error
+	setRegionPolicyReq  *pidgrv1.SetRegionPolicyRequest
+
+	getOrgWebhookConfigResp *pidgrv1.GetOrgWebhookConfigResponse
+	getOrgWebhookConfigErr  error
+	getOrgWebhookConfigReq  *pidgrv1.GetOrgWebhookConfigRequest
+
+	setOrgWebhookConfigResp *pidgrv1.SetOrgWebhookConfigResponse
+	setOrgWebhookConfigErr  error
+	setOrgWebhookConfigReq  *pidgrv1.SetOrgWebhookConfigRequest
 }
 
 var _ pidgrv1connect.IntegrationsServiceClient = (*fakeIntegrationsClient)(nil)
@@ -198,20 +214,36 @@ func (f *fakeIntegrationsClient) ListReachabilityForUser(_ context.Context, req 
 	return connect.NewResponse(f.listReachabilityForUserResp), nil
 }
 
-func (f *fakeIntegrationsClient) GetRegionPolicy(_ context.Context, _ *connect.Request[pidgrv1.GetRegionPolicyRequest]) (*connect.Response[pidgrv1.GetRegionPolicyResponse], error) {
-	return nil, errors.New("not used")
+func (f *fakeIntegrationsClient) GetRegionPolicy(_ context.Context, req *connect.Request[pidgrv1.GetRegionPolicyRequest]) (*connect.Response[pidgrv1.GetRegionPolicyResponse], error) {
+	f.getRegionPolicyReq = req.Msg
+	if f.getRegionPolicyErr != nil {
+		return nil, f.getRegionPolicyErr
+	}
+	return connect.NewResponse(f.getRegionPolicyResp), nil
 }
 
-func (f *fakeIntegrationsClient) SetRegionPolicy(_ context.Context, _ *connect.Request[pidgrv1.SetRegionPolicyRequest]) (*connect.Response[pidgrv1.SetRegionPolicyResponse], error) {
-	return nil, errors.New("not used")
+func (f *fakeIntegrationsClient) SetRegionPolicy(_ context.Context, req *connect.Request[pidgrv1.SetRegionPolicyRequest]) (*connect.Response[pidgrv1.SetRegionPolicyResponse], error) {
+	f.setRegionPolicyReq = req.Msg
+	if f.setRegionPolicyErr != nil {
+		return nil, f.setRegionPolicyErr
+	}
+	return connect.NewResponse(f.setRegionPolicyResp), nil
 }
 
-func (f *fakeIntegrationsClient) GetOrgWebhookConfig(_ context.Context, _ *connect.Request[pidgrv1.GetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.GetOrgWebhookConfigResponse], error) {
-	return connect.NewResponse(&pidgrv1.GetOrgWebhookConfigResponse{}), nil
+func (f *fakeIntegrationsClient) GetOrgWebhookConfig(_ context.Context, req *connect.Request[pidgrv1.GetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.GetOrgWebhookConfigResponse], error) {
+	f.getOrgWebhookConfigReq = req.Msg
+	if f.getOrgWebhookConfigErr != nil {
+		return nil, f.getOrgWebhookConfigErr
+	}
+	return connect.NewResponse(f.getOrgWebhookConfigResp), nil
 }
 
-func (f *fakeIntegrationsClient) SetOrgWebhookConfig(_ context.Context, _ *connect.Request[pidgrv1.SetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.SetOrgWebhookConfigResponse], error) {
-	return connect.NewResponse(&pidgrv1.SetOrgWebhookConfigResponse{}), nil
+func (f *fakeIntegrationsClient) SetOrgWebhookConfig(_ context.Context, req *connect.Request[pidgrv1.SetOrgWebhookConfigRequest]) (*connect.Response[pidgrv1.SetOrgWebhookConfigResponse], error) {
+	f.setOrgWebhookConfigReq = req.Msg
+	if f.setOrgWebhookConfigErr != nil {
+		return nil, f.setOrgWebhookConfigErr
+	}
+	return connect.NewResponse(f.setOrgWebhookConfigResp), nil
 }
 
 func (f *fakeIntegrationsClient) GetCostCapPolicy(_ context.Context, req *connect.Request[pidgrv1.GetCostCapPolicyRequest]) (*connect.Response[pidgrv1.GetCostCapPolicyResponse], error) {
@@ -713,5 +745,147 @@ func TestIntegrationsToolsHaveDescriptions(t *testing.T) {
 		if err := json.Unmarshal(b, &m); err != nil {
 			t.Errorf("%s: schema not valid JSON: %v", name, err)
 		}
+	}
+}
+
+// ─── get_region_policy / set_region_policy ──────────────────────────────────
+
+func TestGetRegionPolicyHappyPath(t *testing.T) {
+	fake := &fakeIntegrationsClient{
+		getRegionPolicyResp: &pidgrv1.GetRegionPolicyResponse{
+			Policy: &pidgrv1.RegionPolicy{AllowedRegions: []string{"eu-west-1"}},
+		},
+	}
+	result := callTool(t, fake, nil, "get_region_policy", map[string]any{
+		"org_id":  "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"channel": "CHANNEL_NAME_EMAIL",
+	})
+	if result.IsError {
+		t.Fatalf("get_region_policy errored: %s", resultText(result))
+	}
+	if fake.getRegionPolicyReq == nil {
+		t.Fatal("GetRegionPolicy was not dispatched")
+	}
+	if got := fake.getRegionPolicyReq.GetChannel(); got != pidgrv1.ChannelName_CHANNEL_NAME_EMAIL {
+		t.Errorf("channel = %v, want CHANNEL_NAME_EMAIL", got)
+	}
+	if !strings.Contains(resultText(result), "eu-west-1") {
+		t.Errorf("response should carry the allowed regions, got: %s", resultText(result))
+	}
+}
+
+func TestGetRegionPolicyUnknownChannelFailsFast(t *testing.T) {
+	fake := &fakeIntegrationsClient{}
+	result := callTool(t, fake, nil, "get_region_policy", map[string]any{
+		"org_id":  "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"channel": "CHANNEL_NAME_CARRIER_PIGEON",
+	})
+	if !result.IsError {
+		t.Fatal("unknown channel must produce an error result")
+	}
+	if fake.getRegionPolicyReq != nil {
+		t.Error("no RPC may be dispatched for an unknown channel")
+	}
+}
+
+func TestSetRegionPolicyForwardsRegions(t *testing.T) {
+	fake := &fakeIntegrationsClient{setRegionPolicyResp: &pidgrv1.SetRegionPolicyResponse{}}
+	result := callTool(t, fake, nil, "set_region_policy", map[string]any{
+		"org_id":          "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"channel":         "CHANNEL_NAME_SMS",
+		"allowed_regions": []string{"eu-west-1", "sa-east-1"},
+	})
+	if result.IsError {
+		t.Fatalf("set_region_policy errored: %s", resultText(result))
+	}
+	if fake.setRegionPolicyReq == nil {
+		t.Fatal("SetRegionPolicy was not dispatched")
+	}
+	if got := fake.setRegionPolicyReq.GetAllowedRegions(); len(got) != 2 || got[0] != "eu-west-1" || got[1] != "sa-east-1" {
+		t.Errorf("allowed_regions = %v, want [eu-west-1 sa-east-1]", got)
+	}
+}
+
+func TestSetRegionPolicyEmptyRegionsClearsPolicy(t *testing.T) {
+	fake := &fakeIntegrationsClient{setRegionPolicyResp: &pidgrv1.SetRegionPolicyResponse{}}
+	result := callTool(t, fake, nil, "set_region_policy", map[string]any{
+		"org_id":  "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"channel": "CHANNEL_NAME_SMS",
+	})
+	if result.IsError {
+		t.Fatalf("set_region_policy errored: %s", resultText(result))
+	}
+	if fake.setRegionPolicyReq == nil {
+		t.Fatal("SetRegionPolicy was not dispatched")
+	}
+	// An empty list is the documented "no policy" value, so it must reach the
+	// server rather than being rejected client-side as a missing argument.
+	if got := fake.setRegionPolicyReq.GetAllowedRegions(); len(got) != 0 {
+		t.Errorf("allowed_regions = %v, want empty", got)
+	}
+}
+
+// ─── get_org_webhook_config / set_org_webhook_config ────────────────────────
+
+func TestGetOrgWebhookConfigHappyPath(t *testing.T) {
+	fake := &fakeIntegrationsClient{
+		getOrgWebhookConfigResp: &pidgrv1.GetOrgWebhookConfigResponse{},
+	}
+	result := callTool(t, fake, nil, "get_org_webhook_config", map[string]any{
+		"org_id": "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+	})
+	if result.IsError {
+		t.Fatalf("get_org_webhook_config errored: %s", resultText(result))
+	}
+	if fake.getOrgWebhookConfigReq == nil {
+		t.Fatal("GetOrgWebhookConfig was not dispatched")
+	}
+	if got := fake.getOrgWebhookConfigReq.GetOrgId(); got != "3d7d7fab-9677-4e91-a41e-a85245b19bec" {
+		t.Errorf("org_id = %q, want the supplied UUID", got)
+	}
+}
+
+func TestSetOrgWebhookConfigOmittedSecretKeepsCurrent(t *testing.T) {
+	fake := &fakeIntegrationsClient{setOrgWebhookConfigResp: &pidgrv1.SetOrgWebhookConfigResponse{}}
+	result := callTool(t, fake, nil, "set_org_webhook_config", map[string]any{
+		"org_id":  "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"url":     "https://hooks.example.com/pidgr",
+		"enabled": true,
+	})
+	if result.IsError {
+		t.Fatalf("set_org_webhook_config errored: %s", resultText(result))
+	}
+	if fake.setOrgWebhookConfigReq == nil {
+		t.Fatal("SetOrgWebhookConfig was not dispatched")
+	}
+	// Leaving secret unset must send no secret at all: sending "" would rotate
+	// the shared secret to empty and break the receiver's HMAC verification.
+	if fake.setOrgWebhookConfigReq.Secret != nil {
+		t.Errorf("secret = %q, want unset", fake.setOrgWebhookConfigReq.GetSecret())
+	}
+	if !fake.setOrgWebhookConfigReq.GetEnabled() {
+		t.Error("enabled should be forwarded as true")
+	}
+}
+
+func TestSetOrgWebhookConfigSuppliedSecretRotates(t *testing.T) {
+	fake := &fakeIntegrationsClient{setOrgWebhookConfigResp: &pidgrv1.SetOrgWebhookConfigResponse{}}
+	result := callTool(t, fake, nil, "set_org_webhook_config", map[string]any{
+		"org_id":  "3d7d7fab-9677-4e91-a41e-a85245b19bec",
+		"url":     "https://hooks.example.com/pidgr",
+		"enabled": true,
+		"secret":  "0123456789abcdef0123",
+	})
+	if result.IsError {
+		t.Fatalf("set_org_webhook_config errored: %s", resultText(result))
+	}
+	if fake.setOrgWebhookConfigReq == nil {
+		t.Fatal("SetOrgWebhookConfig was not dispatched")
+	}
+	if fake.setOrgWebhookConfigReq.Secret == nil {
+		t.Fatal("secret should be set when supplied")
+	}
+	if got := fake.setOrgWebhookConfigReq.GetSecret(); got != "0123456789abcdef0123" {
+		t.Errorf("secret = %q, want the supplied value", got)
 	}
 }
