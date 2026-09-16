@@ -125,9 +125,35 @@ jobs:
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE"
 
+      # The deployment environment can hold this service at zero desired tasks to
+      # avoid paying for idle capacity. The release above still does its work —
+      # it registers the task definition the service picks up when it is scaled
+      # back up — so a public endpoint that is deliberately serving no traffic
+      # must not fail the release. A service that is meant to be running still
+      # has to answer.
       - name: Smoke test
 
         run: |
+          set -euo pipefail
+
+          DESIRED=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].desiredCount' \
+            --output text)
+
+          # An absent or renamed service prints "None" and exits 0, which must
+          # not fall through to the public check as if it were a running one.
+          if [ "$DESIRED" = "None" ] || [ -z "$DESIRED" ]; then
+            echo "::error::Could not read the desired count of $ECS_SERVICE"
+            exit 1
+          fi
+
+          if [ "$DESIRED" = "0" ]; then
+            echo "::warning::$ECS_SERVICE has zero desired tasks; the public smoke test was skipped."
+            exit 0
+          fi
+
           HTTP_CODE=$(curl -sS -o /dev/null -w "%{http_code}" https://mcp.pidgr.com/)
           if [ "$HTTP_CODE" = "401" ]; then
             echo "MCP smoke test passed (auth middleware responding)"
