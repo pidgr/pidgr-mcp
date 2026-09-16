@@ -134,14 +134,23 @@ jobs:
       - name: Smoke test
 
         run: |
+          set -euo pipefail
+
           DESIRED=$(aws ecs describe-services \
             --cluster "$ECS_CLUSTER" \
             --services "$ECS_SERVICE" \
             --query 'services[0].desiredCount' \
             --output text)
 
+          # An absent or renamed service prints "None" and exits 0, which must
+          # not fall through to the public check as if it were a running one.
+          if [ "$DESIRED" = "None" ] || [ -z "$DESIRED" ]; then
+            echo "::error::Could not read the desired count of $ECS_SERVICE"
+            exit 1
+          fi
+
           if [ "$DESIRED" = "0" ]; then
-            echo "::notice::$ECS_SERVICE has zero desired tasks; skipping the public smoke test."
+            echo "::warning::$ECS_SERVICE has zero desired tasks; the public smoke test was skipped."
             exit 0
           fi
 
